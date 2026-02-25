@@ -14,7 +14,9 @@ export class FindProductReviewsProvider {
   ) {}
 
   async findProductReviews(productId: string) {
-    const product = await this.productRepo.findOne({ where: { id: productId } });
+    const product = await this.productRepo.findOne({
+      where: { id: productId },
+    });
 
     if (!product) {
       throw new NotFoundException('Product not found');

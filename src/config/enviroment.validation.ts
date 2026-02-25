@@ -17,4 +17,7 @@ export default Joi.object({
   JWT_TOKEN_AUDIENCE: Joi.string().required(),
   JWT_TOKEN_ISSUER: Joi.string().required(),
   JWT_ACCESS_TOKEN_TTL: Joi.number().required(),
+  CORS_ORIGINS: Joi.string().optional(),
+  RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(900000),
+  RATE_LIMIT_MAX: Joi.number().integer().min(1).default(100),
 });

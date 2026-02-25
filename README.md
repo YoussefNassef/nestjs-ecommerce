@@ -127,6 +127,9 @@ DB_PASSWORD=postgres
 DB_NAME=digital_store
 DATABASE_SYNC=true
 DATABASE_AUTOLOAD=true
+CORS_ORIGINS=http://localhost:3001,https://yourdomain.com
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
 
 AUTHENTICA_SENDER=your_sender_name
 AUTHENTICA_API_KEY=your_authentica_api_key
