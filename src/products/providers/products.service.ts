@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { Product } from '../products.entity';
-import { InjectRepository } from '@nestjs/typeorm';
 import { CreateProductDto } from '../dtos/create-product.dto';
 import { UpdateProductDto } from '../dtos/update-product.dto';
 import { CreateProductProvider } from './create-product.provider';
@@ -8,11 +7,12 @@ import { FindAllProvider } from './find-all.provider';
 import { FindOneProvider } from './find-one.provider';
 import { UpdateProvider } from './update.provider';
 import { RemoveProvider } from './remove.provider';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(Product)
     private readonly createProductProvider: CreateProductProvider,
     private readonly findAllProvider: FindAllProvider,
     private readonly findOneProvider: FindOneProvider,
@@ -26,8 +26,10 @@ export class ProductsService {
   }
 
   // 📄 Get all (User / Admin)
-  async findAll(): Promise<Product[]> {
-    return this.findAllProvider.findAll();
+  async findAll(
+    paginationQuery: PaginationQueryDto,
+  ): Promise<PaginatedResponse<Product>> {
+    return this.findAllProvider.findAll(paginationQuery);
   }
 
   async findOne(id: string): Promise<Product> {

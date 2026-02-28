@@ -6,12 +6,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -23,6 +25,7 @@ import { CreateReviewDto } from './dtos/create-review.dto';
 import { UpdateReviewDto } from './dtos/update-review.dto';
 import { Review } from './review.entity';
 import { ReviewsService } from './providers/reviews.service';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
 @ApiTags('reviews')
 @ApiBearerAuth('JWT-auth')
@@ -50,6 +53,8 @@ export class ReviewsController {
   @Get('product/:productId')
   @Auth(AuthType.None)
   @ApiOperation({ summary: 'Get all reviews for a product' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
   @ApiParam({
     name: 'productId',
     description: 'Product UUID',
@@ -57,8 +62,11 @@ export class ReviewsController {
   })
   @ApiResponse({ status: 200, description: 'Product reviews retrieved' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  getProductReviews(@Param('productId') productId: string) {
-    return this.reviewsService.getProductReviews(productId);
+  getProductReviews(
+    @Param('productId') productId: string,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.reviewsService.getProductReviews(productId, paginationQuery);
   }
 
   @Patch(':reviewId')

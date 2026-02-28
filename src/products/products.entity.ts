@@ -42,6 +42,32 @@ export class Product {
   description?: string;
 
   @ApiProperty({
+    description: 'Main product image URL',
+    example: 'https://cdn.example.com/products/iphone-15-pro/main.jpg',
+  })
+  @Column({
+    type: 'varchar',
+    length: 2048,
+    nullable: true,
+  })
+  mainPicture: string;
+
+  @ApiProperty({
+    description: 'Three secondary product image URLs',
+    example: [
+      'https://cdn.example.com/products/iphone-15-pro/1.jpg',
+      'https://cdn.example.com/products/iphone-15-pro/2.jpg',
+      'https://cdn.example.com/products/iphone-15-pro/3.jpg',
+    ],
+    type: [String],
+  })
+  @Column({
+    type: 'simple-json',
+    nullable: true,
+  })
+  subPictures: string[];
+
+  @ApiProperty({
     description: 'Orders containing this product',
     type: () => [OrderItem],
   })

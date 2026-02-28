@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from 'src/products/products.entity';
 import { Repository } from 'typeorm';
 import { Review } from '../review.entity';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class FindProductReviewsProvider {
@@ -13,7 +15,10 @@ export class FindProductReviewsProvider {
     private readonly productRepo: Repository<Product>,
   ) {}
 
-  async findProductReviews(productId: string) {
+  async findProductReviews(
+    productId: string,
+    paginationQuery: PaginationQueryDto,
+  ) {
     const product = await this.productRepo.findOne({
       where: { id: productId },
     });
@@ -22,7 +27,10 @@ export class FindProductReviewsProvider {
       throw new NotFoundException('Product not found');
     }
 
-    const reviews = await this.reviewRepo.find({
+    const page = paginationQuery.page;
+    const limit = paginationQuery.limit;
+
+    const [reviews, totalItems] = await this.reviewRepo.findAndCount({
       where: { product: { id: productId } },
       relations: {
         user: true,
@@ -30,24 +38,37 @@ export class FindProductReviewsProvider {
       order: {
         createdAt: 'DESC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
 
-    const totalReviews = reviews.length;
+    const stats = await this.reviewRepo
+      .createQueryBuilder('review')
+      .select('COUNT(review.id)', 'totalReviews')
+      .addSelect('AVG(review.rating)', 'averageRating')
+      .where('review.productId = :productId', { productId })
+      .getRawOne<{ totalReviews: string; averageRating: string | null }>();
+
+    const totalReviews = Number(stats?.totalReviews ?? 0);
     const averageRating =
       totalReviews === 0
         ? 0
-        : Number(
-            (
-              reviews.reduce((sum, review) => sum + review.rating, 0) /
-              totalReviews
-            ).toFixed(2),
-          );
+        : Number(Number(stats?.averageRating ?? 0).toFixed(2));
 
     return {
       productId,
       totalReviews,
       averageRating,
       reviews,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      } as PaginatedResponse<Review>['meta'],
     };
   }
 }

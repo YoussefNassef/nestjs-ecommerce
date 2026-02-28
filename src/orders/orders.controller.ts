@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,12 +6,14 @@ import {
   ApiParam,
   ApiBody,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { OrdersService } from './providers/orders.service';
 import { CreateOrderDto } from './dtos/create-order.dto';
 import { ActiveUser } from 'src/auth/decorator/active-user.decorator';
 import * as activeUserDataInterface from 'src/auth/interface/active-user-data.interface';
 import { OrderResponseDto } from './dtos/order-response.dto';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth('JWT-auth')
@@ -37,14 +39,19 @@ export class OrdersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user orders' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
   @ApiResponse({
     status: 200,
     description: 'User orders retrieved successfully',
     type: [OrderResponseDto],
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  myOrders(@ActiveUser() user: activeUserDataInterface.ActiveUserData) {
-    return this.orderService.getUserOrders(user);
+  myOrders(
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.orderService.getUserOrders(user, paginationQuery);
   }
 
   @Get(':id')

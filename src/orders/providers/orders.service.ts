@@ -8,6 +8,8 @@ import { GetUserOrdersProvider } from './get-user-orders.provider';
 import { GetOrderEntityByIdProvider } from './get-order-entity-by-id.provider';
 import { GetOrderByIdProvider } from './get-order-by-id.provider';
 import { UpdateStatusProvider } from './update-status.provider';
+import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
 export class OrdersService {
@@ -23,8 +25,11 @@ export class OrdersService {
     return this.createOrderProvider.createOrder(user);
   }
 
-  async getUserOrders(user: ActiveUserData): Promise<OrderResponseDto[]> {
-    return this.getUserOrdersProvider.getUserOrders(user);
+  async getUserOrders(
+    user: ActiveUserData,
+    paginationQuery: PaginationQueryDto,
+  ): Promise<PaginatedResponse<OrderResponseDto>> {
+    return this.getUserOrdersProvider.getUserOrders(user, paginationQuery);
   }
 
   /**
