@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Product } from '../products.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,16 +13,20 @@ import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { unlink, writeFile } from 'fs/promises';
 import { RemoveProvider } from './remove.provider';
+import { Category } from 'src/categories/category.entity';
 
 @Injectable()
 export class CreateProductProvider {
   constructor(
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    @InjectRepository(Category)
+    private readonly categoryRepo: Repository<Category>,
     private readonly removeProvider: RemoveProvider,
   ) {}
 
   async create(dto: CreateProductDto): Promise<Product> {
+    await this.ensureCategoryExists(dto.categoryId);
     const product = this.productRepo.create(dto);
     return this.productRepo.save(product);
   }
@@ -45,6 +50,7 @@ export class CreateProductProvider {
         'subPictures must contain exactly 3 image files',
       );
     }
+    await this.ensureCategoryExists(dto.categoryId);
 
     const buildFileName = (field: string, originalName: string) => {
       const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
@@ -96,6 +102,13 @@ export class CreateProductProvider {
         ),
       );
       throw new InternalServerErrorException('Failed to store product images');
+    }
+  }
+
+  private async ensureCategoryExists(categoryId: string): Promise<void> {
+    const category = await this.categoryRepo.findOne({ where: { id: categoryId } });
+    if (!category) {
+      throw new NotFoundException('Category not found');
     }
   }
 }

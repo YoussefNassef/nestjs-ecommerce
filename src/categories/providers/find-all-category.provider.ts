@@ -1,30 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Product } from '../products.entity';
 import { Repository } from 'typeorm';
+import { Category } from '../category.entity';
 import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 
 @Injectable()
-export class FindAllProvider {
+export class FindAllCategoryProvider {
   constructor(
-    @InjectRepository(Product)
-    private readonly productRepo: Repository<Product>,
+    @InjectRepository(Category)
+    private readonly categoryRepo: Repository<Category>,
   ) {}
 
   async findAll(
     paginationQuery: PaginationQueryDto,
-  ): Promise<PaginatedResponse<Product>> {
+  ): Promise<PaginatedResponse<Category>> {
     const page = paginationQuery.page;
     const limit = paginationQuery.limit;
-    const [items, totalItems] = await this.productRepo.findAndCount({
+
+    const [items, totalItems] = await this.categoryRepo.findAndCount({
       skip: (page - 1) * limit,
       take: limit,
-      relations: ['category'],
-      order: {
-        name: 'ASC',
-      },
+      order: { name: 'ASC' },
     });
+
     const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
 
     return {

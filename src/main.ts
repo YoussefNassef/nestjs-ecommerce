@@ -119,6 +119,7 @@ async function bootstrap() {
     .addTag('orders', 'Order management endpoints')
     .addTag('payments', 'Payment processing endpoints')
     .addTag('reviews', 'Product reviews endpoints')
+    .addTag('categories', 'Category management endpoints')
     .addTag('webhooks', 'Webhook handling endpoints')
     .addBearerAuth(
       {

@@ -46,10 +46,28 @@ export class ProductsController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['name', 'price', 'mainPicture', 'subPictures'],
+      required: [
+        'name',
+        'slug',
+        'sku',
+        'price',
+        'stock',
+        'categoryId',
+        'mainPicture',
+        'subPictures',
+      ],
       properties: {
         name: { type: 'string', example: 'iPhone 15 Pro' },
+        slug: { type: 'string', example: 'iphone-15-pro' },
+        sku: { type: 'string', example: 'IPH15PRO-256-BLK' },
         price: { type: 'number', example: 4999.99 },
+        stock: { type: 'number', example: 25 },
+        isActive: { type: 'boolean', example: true },
+        categoryId: {
+          type: 'string',
+          format: 'uuid',
+          example: '550e8400-e29b-41d4-a716-446655440001',
+        },
         description: {
           type: 'string',
           example: 'Latest iPhone with advanced features',

@@ -19,6 +19,7 @@ import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
 import { CartModule } from './cart/cart.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     OrdersModule,
     CartModule,
     ReviewsModule,
+    CategoriesModule,
   ],
   controllers: [],
   providers: [

@@ -12,6 +12,7 @@ export class FindOneProvider {
   async findOne(id: string): Promise<Product> {
     const product = await this.productRepo.findOne({
       where: { id },
+      relations: ['category'],
     });
 
     if (!product) {
