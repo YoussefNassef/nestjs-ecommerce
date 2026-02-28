@@ -1,12 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
-  InternalServerErrorException,
   Param,
   Patch,
   Post,
@@ -33,36 +29,8 @@ import { Role } from 'src/auth/enums/role.enum';
 import { UpdateProductDto } from './dtos/update-product.dto';
 import { Product } from './products.entity';
 import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-import { unlink, writeFile } from 'fs/promises';
-
-const productUploadsDir = join(process.cwd(), 'uploads', 'products');
-if (!existsSync(productUploadsDir)) {
-  mkdirSync(productUploadsDir, { recursive: true });
-}
-
-type UploadedImageFile = {
-  fieldname: string;
-  originalname: string;
-  mimetype: string;
-  filename: string;
-  buffer: Buffer;
-};
-
-const imageFileFilter = (
-  _: unknown,
-  file: UploadedImageFile,
-  cb: (error: Error | null, acceptFile: boolean) => void,
-) => {
-  if (!file.mimetype.startsWith('image/')) {
-    cb(new BadRequestException('Only image files are allowed'), false);
-    return;
-  }
-  cb(null, true);
-};
+import { ProductImagesInterceptor } from './interceptors/product-images.interceptor';
+import { UploadedImageFile } from './types/uploaded-image-file.type';
 
 @ApiTags('products')
 @ApiBearerAuth('JWT-auth')
@@ -103,19 +71,7 @@ export class ProductsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'mainPicture', maxCount: 1 },
-        { name: 'subPictures', maxCount: 3 },
-      ],
-      {
-        storage: memoryStorage(),
-        fileFilter: imageFileFilter,
-        limits: { fileSize: 5 * 1024 * 1024 },
-      },
-    ),
-  )
+  @UseInterceptors(ProductImagesInterceptor)
   async createProduct(
     @Body() createProductDto: CreateProductDto,
     @UploadedFiles()
@@ -124,67 +80,7 @@ export class ProductsController {
       subPictures?: UploadedImageFile[];
     },
   ) {
-    const mainPictureFile = files?.mainPicture?.[0];
-    const subPictureFiles = files?.subPictures ?? [];
-
-    if (!mainPictureFile) {
-      throw new BadRequestException('mainPicture file is required');
-    }
-
-    if (subPictureFiles.length !== 3) {
-      throw new BadRequestException(
-        'subPictures must contain exactly 3 image files',
-      );
-    }
-
-    const buildFileName = (field: string, originalName: string) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      return `${field}-${uniqueSuffix}${extname(originalName)}`;
-    };
-
-    const mainPictureFileName = buildFileName(
-      'mainPicture',
-      mainPictureFile.originalname,
-    );
-    const subPictureFileNames = subPictureFiles.map((file) =>
-      buildFileName('subPictures', file.originalname),
-    );
-
-    createProductDto.mainPicture = `/uploads/products/${mainPictureFileName}`;
-    createProductDto.subPictures = subPictureFileNames.map(
-      (fileName) => `/uploads/products/${fileName}`,
-    );
-
-    const createdProduct =
-      await this.productService.createProduct(createProductDto);
-
-    const writtenFiles = [mainPictureFileName, ...subPictureFileNames];
-
-    try {
-      await writeFile(
-        join(productUploadsDir, mainPictureFileName),
-        mainPictureFile.buffer,
-      );
-
-      for (let i = 0; i < subPictureFiles.length; i += 1) {
-        await writeFile(
-          join(productUploadsDir, subPictureFileNames[i]),
-          subPictureFiles[i].buffer,
-        );
-      }
-    } catch {
-      await this.productService
-        .remove(createdProduct.id)
-        .catch(() => undefined);
-      await Promise.all(
-        writtenFiles.map((fileName) =>
-          unlink(join(productUploadsDir, fileName)).catch(() => undefined),
-        ),
-      );
-      throw new InternalServerErrorException('Failed to store product images');
-    }
-
-    return createdProduct;
+    return this.productService.createProductWithImages(createProductDto, files);
   }
 
   @Get()
@@ -265,7 +161,7 @@ export class ProductsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async DeleteProduct(@Param('id') id: string) {
+  async deleteProduct(@Param('id') id: string) {
     return this.productService.remove(id);
   }
 }

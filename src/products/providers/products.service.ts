@@ -9,6 +9,7 @@ import { UpdateProvider } from './update.provider';
 import { RemoveProvider } from './remove.provider';
 import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
+import { UploadedImageFile } from '../types/uploaded-image-file.type';
 
 @Injectable()
 export class ProductsService {
@@ -20,12 +21,20 @@ export class ProductsService {
     private readonly removeProvider: RemoveProvider,
   ) {}
 
-  // ➕ Create (Admin)
+  async createProductWithImages(
+    dto: CreateProductDto,
+    files: {
+      mainPicture?: UploadedImageFile[];
+      subPictures?: UploadedImageFile[];
+    },
+  ): Promise<Product> {
+    return this.createProductProvider.createWithImages(dto, files);
+  }
+
   async createProduct(dto: CreateProductDto): Promise<Product> {
     return this.createProductProvider.create(dto);
   }
 
-  // 📄 Get all (User / Admin)
   async findAll(
     paginationQuery: PaginationQueryDto,
   ): Promise<PaginatedResponse<Product>> {
@@ -40,7 +49,6 @@ export class ProductsService {
     return this.updateProvider.update(id, dto);
   }
 
-  // 🗑 Delete (Admin)
   async remove(id: string): Promise<void> {
     return this.removeProvider.remove(id);
   }
