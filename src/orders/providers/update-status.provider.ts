@@ -10,6 +10,8 @@ import { Product } from 'src/products/products.entity';
 import { DeliveryStatus } from '../enums/delivery-status.enum';
 import { NotificationsService } from 'src/notifications/providers/notifications.service';
 import { NotificationType } from 'src/notifications/enums/notification-type.enum';
+import { OrderTrackingEvent } from '../entities/order-tracking-event.entity';
+import { TrackingEventActorType } from '../enums/tracking-event-actor-type.enum';
 
 @Injectable()
 export class UpdateStatusProvider {
@@ -34,6 +36,7 @@ export class UpdateStatusProvider {
     const updated = await this.dataSource.transaction(async (manager) => {
       const orderRepo = manager.getRepository(Order);
       const productRepo = manager.getRepository(Product);
+      const trackingEventRepo = manager.getRepository(OrderTrackingEvent);
 
       const order = await orderRepo.findOne({
         where: { id: orderId },
@@ -53,6 +56,7 @@ export class UpdateStatusProvider {
         return currentOrder;
       }
 
+      const previousDeliveryStatus = orderWithItems.deliveryStatus;
       const shouldReleaseReservation =
         status === OrderStatus.CANCELLED &&
         orderWithItems.stockReserved &&
@@ -74,9 +78,14 @@ export class UpdateStatusProvider {
             await productRepo.save(product);
           }
         }
-
         orderWithItems.stockReserved = false;
         orderWithItems.reservationExpiresAt = null;
+      }
+
+      if (
+        status === OrderStatus.CANCELLED &&
+        orderWithItems.deliveryStatus !== DeliveryStatus.DELIVERED
+      ) {
         orderWithItems.deliveryStatus = DeliveryStatus.CANCELLED;
         orderWithItems.deliveryStatusUpdatedAt = new Date();
       }
@@ -109,7 +118,26 @@ export class UpdateStatusProvider {
       }
 
       orderWithItems.status = status;
-      return orderRepo.save(orderWithItems);
+      const savedOrder = await orderRepo.save(orderWithItems);
+
+      if (savedOrder.deliveryStatus !== previousDeliveryStatus) {
+        await trackingEventRepo.save({
+          order: { id: savedOrder.id },
+          deliveryStatus: savedOrder.deliveryStatus,
+          trackingNumber: savedOrder.trackingNumber ?? null,
+          shippingCarrier: savedOrder.shippingCarrier ?? null,
+          trackingUrl: savedOrder.trackingUrl ?? null,
+          currentLocation: savedOrder.currentLocation ?? null,
+          trackingNote:
+            this.buildSystemTrackingNote(previousDeliveryStatus, savedOrder) ??
+            null,
+          eventAt: savedOrder.deliveryStatusUpdatedAt ?? new Date(),
+          actorType: TrackingEventActorType.SYSTEM,
+          actorUserId: null,
+        });
+      }
+
+      return savedOrder;
     });
 
     const notification = this.buildStatusNotification(updated);
@@ -124,15 +152,13 @@ export class UpdateStatusProvider {
     return toOrderResponseDto(updated);
   }
 
-  private buildStatusNotification(order: Order):
-    | {
-        userId: number;
-        type: NotificationType;
-        title: string;
-        body: string;
-        data: Record<string, unknown>;
-      }
-    | null {
+  private buildStatusNotification(order: Order): {
+    userId: number;
+    type: NotificationType;
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+  } | null {
     if (!order.user?.id) {
       return null;
     }
@@ -181,14 +207,12 @@ export class UpdateStatusProvider {
     }
   }
 
-  private buildAdminStatusNotification(order: Order):
-    | {
-        type: NotificationType;
-        title: string;
-        body: string;
-        data: Record<string, unknown>;
-      }
-    | null {
+  private buildAdminStatusNotification(order: Order): {
+    type: NotificationType;
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+  } | null {
     const baseData = {
       orderId: order.id,
       userId: order.user?.id ?? null,
@@ -221,5 +245,24 @@ export class UpdateStatusProvider {
       default:
         return null;
     }
+  }
+
+  private buildSystemTrackingNote(
+    previousDeliveryStatus: DeliveryStatus,
+    order: Order,
+  ): string | null {
+    if (previousDeliveryStatus === order.deliveryStatus) {
+      return null;
+    }
+
+    if (order.deliveryStatus === DeliveryStatus.PROCESSING) {
+      return 'Delivery started processing automatically after successful payment.';
+    }
+
+    if (order.deliveryStatus === DeliveryStatus.CANCELLED) {
+      return 'Delivery cancelled automatically due to order cancellation.';
+    }
+
+    return null;
   }
 }

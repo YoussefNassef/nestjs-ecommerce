@@ -22,7 +22,10 @@ export class WishlistService {
   }
 
   async removeFromWishlist(userId: number, productId: string) {
-    return this.removeFromWishlistProvider.removeFromWishlist(userId, productId);
+    return this.removeFromWishlistProvider.removeFromWishlist(
+      userId,
+      productId,
+    );
   }
 
   async moveToCart(userId: number, productId: string) {

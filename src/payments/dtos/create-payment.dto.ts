@@ -25,8 +25,8 @@ export class CreatePaymentDto {
     description: 'Cardholder name',
     example: 'John Doe',
   })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value,
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '',
   )
   @IsString()
   @IsNotEmpty()

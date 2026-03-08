@@ -1,14 +1,23 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { OrderResponseDto } from '../dtos/order-response.dto';
 import { UpdateDeliveryTrackingDto } from '../dtos/update-delivery-tracking.dto';
 import { Order } from '../entities/orders.entity';
+import { OrderItem } from '../entities/orders-item.entity';
 import { OrderStatus } from '../enum/order.status.enum';
 import { DeliveryStatus } from '../enums/delivery-status.enum';
 import { toOrderResponseDto } from '../mappers/order-response.mapper';
 import { GetOrderEntityByIdProvider } from './get-order-entity-by-id.provider';
 import { NotificationsService } from 'src/notifications/providers/notifications.service';
 import { NotificationType } from 'src/notifications/enums/notification-type.enum';
+import { Product } from 'src/products/products.entity';
+import { ActiveUserData } from 'src/auth/interface/active-user-data.interface';
+import { OrderTrackingEvent } from '../entities/order-tracking-event.entity';
+import { TrackingEventActorType } from '../enums/tracking-event-actor-type.enum';
 
 @Injectable()
 export class UpdateDeliveryTrackingProvider {
@@ -30,11 +39,16 @@ export class UpdateDeliveryTrackingProvider {
   async updateTracking(
     orderId: string,
     dto: UpdateDeliveryTrackingDto,
+    actor: ActiveUserData,
   ): Promise<OrderResponseDto> {
     const now = new Date();
+    let shouldSendMilestoneNotification = false;
 
-    const saved = await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Order);
+      const orderItemRepo = manager.getRepository(OrderItem);
+      const productRepo = manager.getRepository(Product);
+      const trackingEventRepo = manager.getRepository(OrderTrackingEvent);
       const order = await repo.findOne({
         where: { id: orderId },
         lock: { mode: 'pessimistic_write' },
@@ -83,14 +97,21 @@ export class UpdateDeliveryTrackingProvider {
       }
 
       if (order.deliveryStatus !== nextStatus) {
+        shouldSendMilestoneNotification = [
+          DeliveryStatus.SHIPPED,
+          DeliveryStatus.OUT_FOR_DELIVERY,
+          DeliveryStatus.DELIVERED,
+        ].includes(nextStatus);
         order.deliveryStatus = nextStatus;
         order.deliveryStatusUpdatedAt = now;
       }
 
       if (
-        [DeliveryStatus.SHIPPED, DeliveryStatus.OUT_FOR_DELIVERY, DeliveryStatus.DELIVERED].includes(
-          nextStatus,
-        ) &&
+        [
+          DeliveryStatus.SHIPPED,
+          DeliveryStatus.OUT_FOR_DELIVERY,
+          DeliveryStatus.DELIVERED,
+        ].includes(nextStatus) &&
         !order.shippedAt
       ) {
         order.shippedAt = now;
@@ -110,20 +131,63 @@ export class UpdateDeliveryTrackingProvider {
       }
 
       if (nextStatus === DeliveryStatus.CANCELLED) {
+        if (order.stockReserved && order.status !== OrderStatus.PAID) {
+          const orderItems = await orderItemRepo.find({
+            where: { order: { id: order.id } },
+            relations: ['product'],
+          });
+
+          for (const item of orderItems) {
+            const product = await productRepo.findOne({
+              where: { id: item.product.id },
+              lock: { mode: 'pessimistic_write' },
+            });
+
+            if (!product) {
+              continue;
+            }
+
+            product.stock += item.quantity;
+            product.reservedStock = Math.max(
+              0,
+              (product.reservedStock ?? 0) - item.quantity,
+            );
+            await productRepo.save(product);
+          }
+          order.stockReserved = false;
+          order.reservationExpiresAt = null;
+        }
+
         order.status = OrderStatus.CANCELLED;
-      } else if (nextStatus === DeliveryStatus.PROCESSING && order.status === OrderStatus.PAID) {
+      } else if (
+        nextStatus === DeliveryStatus.PROCESSING &&
+        order.status === OrderStatus.PAID
+      ) {
         order.status = OrderStatus.IN_PROGRESS;
       } else if (nextStatus === DeliveryStatus.DELIVERED) {
         order.status = OrderStatus.COMPLETED;
       }
 
       await repo.save(order);
+
+      await trackingEventRepo.save({
+        order: { id: order.id },
+        deliveryStatus: order.deliveryStatus,
+        trackingNumber: order.trackingNumber ?? null,
+        shippingCarrier: order.shippingCarrier ?? null,
+        trackingUrl: order.trackingUrl ?? null,
+        currentLocation: order.currentLocation ?? null,
+        trackingNote: order.trackingNote ?? null,
+        eventAt: now,
+        actorType: TrackingEventActorType.ADMIN,
+        actorUserId: Number(actor.sub),
+      });
     });
 
     const reloaded =
       await this.getOrderEntityByIdProvider.getOrderEntityById(orderId);
 
-    if (reloaded.user?.id) {
+    if (reloaded.user?.id && shouldSendMilestoneNotification) {
       await this.notificationsService.create({
         userId: reloaded.user.id,
         type: NotificationType.DELIVERY_UPDATED,
@@ -141,7 +205,10 @@ export class UpdateDeliveryTrackingProvider {
     return toOrderResponseDto(reloaded);
   }
 
-  private ensureValidTransition(order: Order, nextStatus: DeliveryStatus): void {
+  private ensureValidTransition(
+    order: Order,
+    nextStatus: DeliveryStatus,
+  ): void {
     if (
       order.status === OrderStatus.PENDING_PAYMENT ||
       order.status === OrderStatus.PAYMENT_INITIATED

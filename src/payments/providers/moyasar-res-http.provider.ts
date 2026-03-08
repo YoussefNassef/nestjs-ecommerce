@@ -74,7 +74,7 @@ export class MoyasarResHttpProvider {
 
   private mapMoyasarError(error: unknown): Error {
     if (axios.isAxiosError(error)) {
-      const responseData = error.response?.data;
+      const responseData: unknown = error.response?.data;
       const details =
         typeof responseData === 'string'
           ? responseData

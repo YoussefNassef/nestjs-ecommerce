@@ -140,6 +140,7 @@ async function bootstrap() {
     .addTag('webhooks', 'Webhook handling endpoints')
     .addTag('health', 'Health and readiness endpoints')
     .addTag('admin', 'Admin dashboard and controls')
+    .addTag('returns', 'Returns and refunds (RMA) endpoints')
     .addBearerAuth(
       {
         type: 'http',

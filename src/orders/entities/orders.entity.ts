@@ -14,6 +14,8 @@ import { Payment } from 'src/payments/payments.entity';
 import { OrderItem } from './orders-item.entity';
 import { ShippingMethod } from '../enums/shipping-method.enum';
 import { DeliveryStatus } from '../enums/delivery-status.enum';
+import { OrderTrackingEvent } from './order-tracking-event.entity';
+import { ReturnRequest } from 'src/returns/return-request.entity';
 
 @Entity('orders')
 export class Order {
@@ -220,6 +222,12 @@ export class Order {
 
   @OneToMany(() => OrderItem, (oi) => oi.order, { cascade: true })
   items: OrderItem[];
+
+  @OneToMany(() => OrderTrackingEvent, (event) => event.order)
+  trackingEvents: OrderTrackingEvent[];
+
+  @OneToMany(() => ReturnRequest, (request) => request.order)
+  returnRequests: ReturnRequest[];
 
   /**
    * Aggregate helper to attach an order item.

@@ -22,7 +22,10 @@ export class ApplyCouponProvider {
       userId,
       cart,
     );
-    await this.couponsService.calculateDiscount(dto.code, cartResponse.totalPrice);
+    await this.couponsService.calculateDiscount(
+      dto.code,
+      cartResponse.totalPrice,
+    );
 
     cart.appliedCouponCode = dto.code.trim().toUpperCase();
     await this.cartStoreProvider.saveStoredCart(userId, cart);

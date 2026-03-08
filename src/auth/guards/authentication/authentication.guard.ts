@@ -38,7 +38,9 @@ export class AuthenticationGuard implements CanActivate {
 
     for (const instance of guards) {
       try {
-        const canActivate = await Promise.resolve(instance.canActivate(context));
+        const canActivate = await Promise.resolve(
+          instance.canActivate(context),
+        );
         if (canActivate) {
           return true;
         }

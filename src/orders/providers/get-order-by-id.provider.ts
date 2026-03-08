@@ -13,7 +13,7 @@ export class GetOrderByIdProvider {
     const order =
       await this.getOrderEntityByIdProvider.getOrderEntityById(orderId);
 
-    const isOwner = order.user?.id === user.sub;
+    const isOwner = Number(order.user?.id) === Number(user.sub);
     const isAdmin = user.role === Role.ADMIN;
 
     if (!isOwner && !isAdmin) {

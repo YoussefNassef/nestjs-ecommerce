@@ -25,7 +25,9 @@ export class FindAllProvider {
       this.configService.get<number>('CATALOG_CACHE_TTL_SECONDS') ?? 60;
   }
 
-  async findAll(query: ProductListQueryDto): Promise<PaginatedResponse<Product>> {
+  async findAll(
+    query: ProductListQueryDto,
+  ): Promise<PaginatedResponse<Product>> {
     const {
       page,
       limit,
@@ -44,7 +46,9 @@ export class FindAllProvider {
       maxPrice !== undefined &&
       minPrice > maxPrice
     ) {
-      throw new BadRequestException('minPrice must be less than or equal maxPrice');
+      throw new BadRequestException(
+        'minPrice must be less than or equal maxPrice',
+      );
     }
 
     const normalized = {
@@ -91,15 +95,21 @@ export class FindAllProvider {
     }
 
     if (normalized.minPrice !== null) {
-      qb.andWhere('product.price >= :minPrice', { minPrice: normalized.minPrice });
+      qb.andWhere('product.price >= :minPrice', {
+        minPrice: normalized.minPrice,
+      });
     }
 
     if (normalized.maxPrice !== null) {
-      qb.andWhere('product.price <= :maxPrice', { maxPrice: normalized.maxPrice });
+      qb.andWhere('product.price <= :maxPrice', {
+        maxPrice: normalized.maxPrice,
+      });
     }
 
     if (normalized.isActive !== null) {
-      qb.andWhere('product.isActive = :isActive', { isActive: normalized.isActive });
+      qb.andWhere('product.isActive = :isActive', {
+        isActive: normalized.isActive,
+      });
     }
 
     const sortColumnMap: Record<ProductSortBy, string> = {
@@ -108,7 +118,10 @@ export class FindAllProvider {
       [ProductSortBy.STOCK]: 'product.stock',
     };
 
-    qb.orderBy(sortColumnMap[normalized.sortBy], normalized.sortOrder.toUpperCase() as 'ASC' | 'DESC')
+    qb.orderBy(
+      sortColumnMap[normalized.sortBy],
+      normalized.sortOrder.toUpperCase() as 'ASC' | 'DESC',
+    )
       .addOrderBy('product.name', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);

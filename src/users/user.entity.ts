@@ -12,6 +12,7 @@ import { Role } from 'src/auth/enums/role.enum';
 import { Review } from 'src/reviews/review.entity';
 import { Wishlist } from 'src/wishlist/wishlist.entity';
 import { Address } from 'src/addresses/address.entity';
+import { ReturnRequest } from 'src/returns/return-request.entity';
 
 @Entity('users')
 export class User {
@@ -90,6 +91,13 @@ export class User {
   })
   @OneToMany(() => Address, (address) => address.user)
   addresses: Address[];
+
+  @ApiProperty({
+    description: 'User return requests',
+    type: () => [ReturnRequest],
+  })
+  @OneToMany(() => ReturnRequest, (request) => request.user)
+  returnRequests: ReturnRequest[];
 
   @ApiProperty({
     description: 'Account creation timestamp',

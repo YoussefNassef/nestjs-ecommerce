@@ -117,7 +117,8 @@ export class PaymentsController {
       return;
     }
 
-    const payment = await this.paymentsService.getPaymentById(paymentIdentifier);
+    const payment =
+      await this.paymentsService.getPaymentById(paymentIdentifier);
 
     if (isSuccessful) {
       await this.paymentsService.updatePaymentStatus(
@@ -125,7 +126,10 @@ export class PaymentsController {
         PaymentStatus.PAID,
       );
       if (payment.order?.id) {
-        await this.ordersService.updateStatus(payment.order.id, OrderStatus.PAID);
+        await this.ordersService.updateStatus(
+          payment.order.id,
+          OrderStatus.PAID,
+        );
       }
       return;
     }

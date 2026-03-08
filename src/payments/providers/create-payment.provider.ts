@@ -38,9 +38,10 @@ export class CreatePaymentProvider {
   ) {
     await this.ordersService.releaseExpiredReservations();
 
-    const orderAggregate = await this.ordersService.getOrderEntityById(dto.orderId);
-    const isOwner =
-      Number(orderAggregate.user?.id) === Number(requester.sub);
+    const orderAggregate = await this.ordersService.getOrderEntityById(
+      dto.orderId,
+    );
+    const isOwner = Number(orderAggregate.user?.id) === Number(requester.sub);
     const isAdmin = requester.role === Role.ADMIN;
     if (!isOwner && !isAdmin) {
       throw new ForbiddenException(

@@ -32,7 +32,9 @@ export class CreateOrderProvider {
     const cart = await this.cartService.getCart(user.sub);
     const validation = await this.cartService.validateCart(user.sub);
     if (!validation.valid) {
-      throw new BadRequestException(validation.issues[0]?.message ?? 'Invalid cart');
+      throw new BadRequestException(
+        validation.issues[0]?.message ?? 'Invalid cart',
+      );
     }
 
     const address = await this.addressesService.getOwnedAddressForOrder(
@@ -140,7 +142,8 @@ export class CreateOrderProvider {
       data: {
         orderId: savedOrder.id,
         status: savedOrder.status,
-        reservationExpiresAt: savedOrder.reservationExpiresAt?.toISOString() ?? null,
+        reservationExpiresAt:
+          savedOrder.reservationExpiresAt?.toISOString() ?? null,
       },
     });
     await this.notificationsService.createForAdmins({

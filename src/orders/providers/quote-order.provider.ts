@@ -16,10 +16,15 @@ export class QuoteOrderProvider {
   async quote(user: ActiveUserData, dto: CreateOrderDto) {
     const validation = await this.cartService.validateCart(user.sub);
     if (!validation.valid) {
-      throw new BadRequestException(validation.issues[0]?.message ?? 'Invalid cart');
+      throw new BadRequestException(
+        validation.issues[0]?.message ?? 'Invalid cart',
+      );
     }
 
-    await this.addressesService.getOwnedAddressForOrder(user.sub, dto.addressId);
+    await this.addressesService.getOwnedAddressForOrder(
+      user.sub,
+      dto.addressId,
+    );
 
     const shipping = this.shippingQuoteProvider.getQuote(
       dto.shippingMethod,
@@ -30,7 +35,9 @@ export class QuoteOrderProvider {
     const discountAmount =
       'discountAmount' in validation.cart ? validation.cart.discountAmount : 0;
     const couponCode =
-      'coupon' in validation.cart ? validation.cart.coupon?.code ?? null : null;
+      'coupon' in validation.cart
+        ? (validation.cart.coupon?.code ?? null)
+        : null;
     const totalAmount =
       Math.max(0, subtotalAmount - discountAmount) + shipping.shippingCost;
 

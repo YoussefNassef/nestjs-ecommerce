@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -89,6 +90,24 @@ export class OrdersController {
     return this.orderService.getUserOrders(user, paginationQuery);
   }
 
+  // Backward-compatible alias used by some frontend calls (e.g. /orders/).
+  @Get()
+  @ApiOperation({ summary: 'Get current user orders (alias)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({
+    status: 200,
+    description: 'User orders retrieved successfully',
+    type: [OrderResponseDto],
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  myOrdersAlias(
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.orderService.getUserOrders(user, paginationQuery);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get order by ID' })
   @ApiParam({
@@ -132,9 +151,36 @@ export class OrdersController {
     return this.orderService.getTracking(id, user);
   }
 
-  @Post(':id/tracking')
+  @Patch(':id/tracking')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Update order delivery tracking (Admin)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: UpdateDeliveryTrackingDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Delivery tracking updated successfully',
+    type: OrderResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  patchTracking(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDeliveryTrackingDto,
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+  ) {
+    return this.orderService.updateDeliveryTracking(id, dto, user);
+  }
+
+  // Backward-compatible legacy route for existing clients using POST.
+  @Post(':id/tracking')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Update order delivery tracking (Admin, legacy POST)',
+  })
   @ApiParam({
     name: 'id',
     description: 'Order UUID',
@@ -151,7 +197,33 @@ export class OrdersController {
   updateTracking(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateDeliveryTrackingDto,
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
   ) {
-    return this.orderService.updateDeliveryTracking(id, dto);
+    return this.orderService.updateDeliveryTracking(id, dto, user);
+  }
+
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel current user unpaid order' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Order cancelled successfully',
+    type: OrderResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Order cannot be cancelled in current status',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  cancelMyOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+  ) {
+    return this.orderService.cancelMyOrder(id, user);
   }
 }

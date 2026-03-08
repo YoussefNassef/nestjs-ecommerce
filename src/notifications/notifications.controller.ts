@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -34,7 +41,10 @@ export class NotificationsController {
     @ActiveUser() activeUser: ActiveUserData,
     @Query() pagination: PaginationQueryDto,
   ) {
-    return this.notificationsService.getMyNotifications(activeUser.sub, pagination);
+    return this.notificationsService.getMyNotifications(
+      activeUser.sub,
+      pagination,
+    );
   }
 
   @Get('unread-count')

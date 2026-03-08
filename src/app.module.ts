@@ -26,6 +26,7 @@ import { CouponsModule } from './coupons/coupons.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ReturnsModule } from './returns/returns.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AddressesModule,
     AdminModule,
     NotificationsModule,
+    ReturnsModule,
   ],
   controllers: [],
   providers: [

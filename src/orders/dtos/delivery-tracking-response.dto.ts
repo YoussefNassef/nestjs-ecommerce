@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DeliveryStatus } from '../enums/delivery-status.enum';
+import { OrderTrackingEventResponseDto } from './order-tracking-event-response.dto';
 
 export class DeliveryTrackingResponseDto {
   @ApiProperty({
@@ -84,4 +85,10 @@ export class DeliveryTrackingResponseDto {
     nullable: true,
   })
   deliveryStatusUpdatedAt?: Date | null;
+
+  @ApiProperty({
+    description: 'Chronological tracking history (oldest to newest)',
+    type: [OrderTrackingEventResponseDto],
+  })
+  timeline: OrderTrackingEventResponseDto[];
 }

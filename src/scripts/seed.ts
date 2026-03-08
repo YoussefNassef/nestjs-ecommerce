@@ -98,7 +98,10 @@ async function seed(): Promise<void> {
     'ROG-G16-I9',
     'AIRPODS-PRO2',
     'SONY-XM6-BLK',
-    ...Array.from({ length: 20 }, (_, i) => `SEED-${String(i + 1).padStart(3, '0')}`),
+    ...Array.from(
+      { length: 20 },
+      (_, i) => `SEED-${String(i + 1).padStart(3, '0')}`,
+    ),
   ];
 
   await productRepo.delete(legacySeedSkus.map((sku) => ({ sku })));
@@ -481,7 +484,9 @@ async function seed(): Promise<void> {
     ['phone'],
   );
 
-  const seedCustomer = await userRepo.findOneByOrFail({ phone: '966500000002' });
+  const seedCustomer = await userRepo.findOneByOrFail({
+    phone: '966500000002',
+  });
 
   const existingDefaultAddress = await addressRepo.findOne({
     where: {
@@ -509,12 +514,11 @@ async function seed(): Promise<void> {
   }
 
   await dataSource.destroy();
-  // eslint-disable-next-line no-console
+
   console.log('Seed completed successfully.');
 }
 
 seed().catch((error: unknown) => {
-  // eslint-disable-next-line no-console
   console.error('Seed failed:', error);
   process.exit(1);
 });

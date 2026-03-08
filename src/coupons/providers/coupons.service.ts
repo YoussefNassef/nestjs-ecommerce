@@ -123,7 +123,9 @@ export class CouponsService {
 
     let discountAmount = 0;
     if (coupon.discountType === CouponDiscountType.PERCENTAGE) {
-      discountAmount = Math.floor((subtotalAmount * coupon.discountValue) / 100);
+      discountAmount = Math.floor(
+        (subtotalAmount * coupon.discountValue) / 100,
+      );
     } else {
       discountAmount = coupon.discountValue;
     }

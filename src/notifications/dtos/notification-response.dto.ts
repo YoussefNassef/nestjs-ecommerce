@@ -5,13 +5,18 @@ export class NotificationResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   id: string;
 
-  @ApiProperty({ enum: NotificationType, example: NotificationType.ORDER_CREATED })
+  @ApiProperty({
+    enum: NotificationType,
+    example: NotificationType.ORDER_CREATED,
+  })
   type: NotificationType;
 
   @ApiProperty({ example: 'Your order has been created' })
   title: string;
 
-  @ApiProperty({ example: 'Order #123 was created and stock is reserved for checkout.' })
+  @ApiProperty({
+    example: 'Order #123 was created and stock is reserved for checkout.',
+  })
   body: string;
 
   @ApiProperty({

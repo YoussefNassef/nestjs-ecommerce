@@ -35,7 +35,9 @@ export class ProductsService {
     return this.createProductProvider.create(dto);
   }
 
-  async findAll(query: ProductListQueryDto): Promise<PaginatedResponse<Product>> {
+  async findAll(
+    query: ProductListQueryDto,
+  ): Promise<PaginatedResponse<Product>> {
     return this.findAllProvider.findAll(query);
   }
 

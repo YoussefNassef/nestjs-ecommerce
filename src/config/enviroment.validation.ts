@@ -27,8 +27,5 @@ export default Joi.object({
   CORS_ORIGINS: Joi.string().optional(),
   RATE_LIMIT_WINDOW_MS: Joi.number().integer().min(1000).default(900000),
   RATE_LIMIT_MAX: Joi.number().integer().min(1).default(100),
-  ORDER_STOCK_RESERVATION_MINUTES: Joi.number()
-    .integer()
-    .min(1)
-    .default(15),
+  ORDER_STOCK_RESERVATION_MINUTES: Joi.number().integer().min(1).default(15),
 });

@@ -9,7 +9,6 @@ import { MarkNotificationAsReadProvider } from './mark-notification-as-read.prov
 import { MarkAllNotificationsAsReadProvider } from './mark-all-notifications-as-read.provider';
 import { CreateNotificationInput } from '../types/create-notification-input.type';
 
-
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -20,7 +19,9 @@ export class NotificationsService {
     private readonly markAllNotificationsAsReadProvider: MarkAllNotificationsAsReadProvider,
   ) {}
 
-  async create(input: CreateNotificationInput): Promise<NotificationResponseDto> {
+  async create(
+    input: CreateNotificationInput,
+  ): Promise<NotificationResponseDto> {
     return this.createNotificationProvider.create(input);
   }
 
@@ -34,15 +35,24 @@ export class NotificationsService {
     userId: number,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<NotificationResponseDto>> {
-    return this.getMyNotificationsProvider.getMyNotifications(userId, pagination);
+    return this.getMyNotificationsProvider.getMyNotifications(
+      userId,
+      pagination,
+    );
   }
 
   async getUnreadCount(userId: number): Promise<number> {
     return this.getUnreadCountProvider.getUnreadCount(userId);
   }
 
-  async markAsRead(userId: number, notificationId: string): Promise<NotificationResponseDto> {
-    return this.markNotificationAsReadProvider.markAsRead(userId, notificationId);
+  async markAsRead(
+    userId: number,
+    notificationId: string,
+  ): Promise<NotificationResponseDto> {
+    return this.markNotificationAsReadProvider.markAsRead(
+      userId,
+      notificationId,
+    );
   }
 
   async markAllAsRead(userId: number): Promise<{ updatedCount: number }> {

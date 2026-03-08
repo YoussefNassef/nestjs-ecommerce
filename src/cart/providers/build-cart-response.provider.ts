@@ -59,12 +59,10 @@ export class BuildCartResponseProvider {
     );
 
     let discountAmount = 0;
-    let coupon:
-      | {
-          code: string;
-          discountAmount: number;
-        }
-      | null = null;
+    let coupon: {
+      code: string;
+      discountAmount: number;
+    } | null = null;
 
     if (cart.appliedCouponCode) {
       try {

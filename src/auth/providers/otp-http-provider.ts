@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 @Injectable()
 export class OtpHttpProvider {
@@ -21,9 +21,17 @@ export class OtpHttpProvider {
         },
       });
       return response;
-    } catch (error: any) {
-      // نوضح رسالة الخطأ القادمة من Authentica
-      throw new BadRequestException(error);
+    } catch (error) {
+      const axiosError = error as AxiosError<{
+        message?: string;
+        error?: string;
+      }>;
+      const providerMessage =
+        axiosError.response?.data?.message ??
+        axiosError.response?.data?.error ??
+        'Failed to send OTP';
+
+      throw new BadRequestException(providerMessage);
     }
   }
 }

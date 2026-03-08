@@ -80,7 +80,9 @@ export class WebhooksService {
     }
 
     try {
-      const payment = await this.paymentsService.getPaymentById(payload.data.id);
+      const payment = await this.paymentsService.getPaymentById(
+        payload.data.id,
+      );
       if (!payment) {
         throw new NotFoundException('Payment not found');
       }
@@ -90,29 +92,39 @@ export class WebhooksService {
         throw new BadRequestException('Missing order reference in webhook');
       }
 
-      if (payload.data.status !== MoyasarPaymentStatus.PAID) {
-        await this.paymentsService.updatePaymentStatus(
-          payload.data.id,
-          PaymentStatus.FAILED,
-        );
-        await this.orderService.updateStatus(orderId, OrderStatus.CANCELLED);
-        await this.markWebhookEventCompleted(key);
-        return { success: true, status: PaymentStatus.FAILED };
-      }
-
       if (payment.status === PaymentStatus.PAID) {
         await this.markWebhookEventCompleted(key);
         return { duplicate: true };
       }
 
-      await this.paymentsService.updatePaymentStatus(
-        payload.data.id,
-        PaymentStatus.PAID,
-      );
-      await this.orderService.updateStatus(orderId, OrderStatus.PAID);
+      switch (payload.data.status) {
+        case MoyasarPaymentStatus.PAID:
+          await this.paymentsService.updatePaymentStatus(
+            payload.data.id,
+            PaymentStatus.PAID,
+          );
+          await this.orderService.updateStatus(orderId, OrderStatus.PAID);
+          await this.markWebhookEventCompleted(key);
+          return { success: true, status: PaymentStatus.PAID };
 
-      await this.markWebhookEventCompleted(key);
-      return { success: true, status: PaymentStatus.PAID };
+        case MoyasarPaymentStatus.FAILED:
+          await this.paymentsService.updatePaymentStatus(
+            payload.data.id,
+            PaymentStatus.FAILED,
+          );
+          await this.orderService.updateStatus(orderId, OrderStatus.CANCELLED);
+          await this.markWebhookEventCompleted(key);
+          return { success: true, status: PaymentStatus.FAILED };
+
+        case MoyasarPaymentStatus.INITIATED:
+          await this.markWebhookEventCompleted(key);
+          return { success: true, status: payment.status };
+
+        default:
+          throw new BadRequestException(
+            'Unsupported payment status in webhook',
+          );
+      }
     } catch (error) {
       await this.releaseWebhookIdempotencyKey(key);
       throw error;

@@ -11,7 +11,9 @@ import { AdminService } from './providers/admin.service';
 import { GetDashboardOverviewProvider } from './providers/get-dashboard-overview.provider';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Product, Order, OrderItem, Payment])],
+  imports: [
+    TypeOrmModule.forFeature([User, Product, Order, OrderItem, Payment]),
+  ],
   controllers: [AdminController],
   providers: [
     AdminService,

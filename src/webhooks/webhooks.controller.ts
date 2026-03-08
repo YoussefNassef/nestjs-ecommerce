@@ -16,7 +16,10 @@ export class WebhooksController {
   @Auth(AuthType.None)
   @ApiOperation({ summary: 'Process payment provider webhook event' })
   @ApiResponse({ status: 201, type: WebhookProcessResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid webhook payload/signature' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid webhook payload/signature',
+  })
   handle(
     @Req() req: Request & { rawBody?: string },
     @Headers('x-moyasar-signature') moyasarSignature: string | undefined,

@@ -62,7 +62,10 @@ export class DashboardOrderStatusCountDto {
 }
 
 export class DashboardDeliveryStatusCountDto {
-  @ApiProperty({ enum: DeliveryStatus, example: DeliveryStatus.OUT_FOR_DELIVERY })
+  @ApiProperty({
+    enum: DeliveryStatus,
+    example: DeliveryStatus.OUT_FOR_DELIVERY,
+  })
   status: DeliveryStatus;
 
   @ApiProperty({ example: 27 })

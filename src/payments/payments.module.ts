@@ -19,7 +19,11 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     UpdatePaymentStatusProvider,
   ],
   controllers: [PaymentsController],
-  imports: [OrdersModule, NotificationsModule, TypeOrmModule.forFeature([Payment])],
+  imports: [
+    OrdersModule,
+    NotificationsModule,
+    TypeOrmModule.forFeature([Payment]),
+  ],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}

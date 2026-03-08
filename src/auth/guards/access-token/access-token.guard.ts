@@ -32,8 +32,8 @@ export class AccessTokenGuard implements CanActivate {
         this.jwtConfiguration,
       );
       request[REQUEST_USER_KEY] = payload;
-    } catch (error: any) {
-      throw new UnauthorizedException(`Invalid or expired token: ${error}`);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
     }
     return true;
   }

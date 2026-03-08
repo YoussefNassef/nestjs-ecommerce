@@ -18,6 +18,7 @@ import { UpdateDeliveryTrackingDto } from '../dtos/update-delivery-tracking.dto'
 import { GetOrderTrackingProvider } from './get-order-tracking.provider';
 import { DeliveryTrackingResponseDto } from '../dtos/delivery-tracking-response.dto';
 import { ReleaseExpiredReservationsProvider } from './release-expired-reservations.provider';
+import { CancelMyOrderProvider } from './cancel-my-order.provider';
 
 @Injectable()
 export class OrdersService {
@@ -31,6 +32,7 @@ export class OrdersService {
     private readonly updateDeliveryTrackingProvider: UpdateDeliveryTrackingProvider,
     private readonly getOrderTrackingProvider: GetOrderTrackingProvider,
     private readonly releaseExpiredReservationsProvider: ReleaseExpiredReservationsProvider,
+    private readonly cancelMyOrderProvider: CancelMyOrderProvider,
   ) {}
 
   async createOrder(
@@ -85,8 +87,13 @@ export class OrdersService {
   async updateDeliveryTracking(
     orderId: string,
     dto: UpdateDeliveryTrackingDto,
+    actor: ActiveUserData,
   ): Promise<OrderResponseDto> {
-    return this.updateDeliveryTrackingProvider.updateTracking(orderId, dto);
+    return this.updateDeliveryTrackingProvider.updateTracking(
+      orderId,
+      dto,
+      actor,
+    );
   }
 
   async getTracking(
@@ -94,5 +101,12 @@ export class OrdersService {
     user: ActiveUserData,
   ): Promise<DeliveryTrackingResponseDto> {
     return this.getOrderTrackingProvider.getTracking(orderId, user);
+  }
+
+  async cancelMyOrder(
+    orderId: string,
+    user: ActiveUserData,
+  ): Promise<OrderResponseDto> {
+    return this.cancelMyOrderProvider.cancel(orderId, user);
   }
 }

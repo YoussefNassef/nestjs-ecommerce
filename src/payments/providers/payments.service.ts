@@ -43,7 +43,8 @@ export class PaymentsService {
   }
 
   async syncPaymentStatus(identifier: string, requester?: ActiveUserData) {
-    const payment = await this.getPaymentByIdProvider.getPaymentById(identifier);
+    const payment =
+      await this.getPaymentByIdProvider.getPaymentById(identifier);
 
     if (requester) {
       const isOwner = payment.order?.id

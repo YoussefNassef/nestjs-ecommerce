@@ -44,8 +44,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           message = parsedMessage;
         }
       }
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
 
     const payload: ApiErrorResponse = {
