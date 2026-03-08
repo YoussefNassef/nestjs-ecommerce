@@ -17,6 +17,8 @@ Production-oriented e-commerce backend built with NestJS, PostgreSQL, and TypeOR
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [API Map](#api-map)
+- [Module Breakdown](#module-breakdown)
+- [Route Inventory](#route-inventory)
 - [Recent Domain Enhancements](#recent-domain-enhancements)
 - [Typical Workflows](#typical-workflows)
 - [Quick Start](#quick-start)
@@ -129,6 +131,134 @@ Global prefix: `/api`
 
 Swagger UI:
 - `http://localhost:3000/api/docs`
+
+## Module Breakdown
+### Domain modules
+- `auth`: registration, sign-in, OTP verification, guards, decorators, and JWT config.
+- `users`: authenticated profile read/update and phone change verification flow.
+- `products`: product CRUD, listing filters, media upload integration, and catalog reads.
+- `categories`: category CRUD and category list endpoints.
+- `cart`: Redis-backed cart aggregate, coupon application, validation, and item quantity updates.
+- `coupons`: admin coupon lifecycle and discount validation rules.
+- `orders`: order creation, quote generation, stock reservation, cancellation, and delivery tracking.
+- `payments`: payment initiation, callback fallback handling, and explicit sync with provider.
+- `webhooks`: payment provider webhook signature verification and idempotent processing.
+- `returns`: RMA lifecycle for customer return requests and admin refund workflow.
+- `reviews`: product review CRUD by customers.
+- `wishlist`: save-for-later and move-to-cart workflow.
+- `addresses`: user shipping address book with default selection.
+- `notifications`: user notification listing, unread counts, and mark-as-read actions.
+- `admin`: analytics dashboard overview endpoint for admin operations.
+- `health`: liveness and readiness probes.
+
+### Infrastructure and shared modules
+- `common`: global response interceptor and exception normalization.
+- `config`: application config loading and Joi environment validation.
+- `redis`: lazy Redis client wrapper used by cart, cache, and rate limiting.
+- `scripts`: development seed script and local setup helpers.
+- `utils`: small helper methods shared across modules.
+
+## Route Inventory
+### Auth
+- `POST /api/auth/register`: create a user account and trigger OTP send.
+- `POST /api/auth/signIn`: request OTP for login.
+- `POST /api/auth/verify-otp`: verify OTP and receive access token.
+
+### Users
+- `GET /api/users/me`: get authenticated user profile.
+- `PATCH /api/users/me`: update authenticated user profile.
+- `POST /api/users/me/phone-change/request`: request OTP for phone number change.
+- `POST /api/users/me/phone-change/verify`: verify phone change OTP and apply the new number.
+
+### Products
+- `POST /api/products`: create product with admin privileges.
+- `GET /api/products`: list products with filters, pagination, and sort support.
+- `GET /api/products/:id`: get product details.
+- `PATCH /api/products/:id`: update product with admin privileges.
+- `DELETE /api/products/:id`: delete product with admin privileges.
+
+### Categories
+- `POST /api/categories`: create category.
+- `GET /api/categories`: list categories.
+- `GET /api/categories/:id`: get category details.
+- `PATCH /api/categories/:id`: update category.
+- `DELETE /api/categories/:id`: delete category.
+
+### Cart
+- `GET /api/cart`: get current cart snapshot.
+- `POST /api/cart/add`: add product to cart.
+- `POST /api/cart/validate`: validate cart before checkout.
+- `POST /api/cart/coupon/apply`: apply coupon to current cart.
+- `DELETE /api/cart/coupon`: remove applied coupon.
+- `DELETE /api/cart/item/:cartItemId`: remove one cart item.
+- `PATCH /api/cart/item/:cartItemId`: update item quantity.
+- `DELETE /api/cart`: clear the cart.
+
+### Orders
+- `POST /api/orders`: create order from cart.
+- `POST /api/orders/quote`: calculate order totals before checkout.
+- `GET /api/orders/me`: list current user orders.
+- `GET /api/orders`: backward-compatible alias for current user orders.
+- `GET /api/orders/:id`: get single order details.
+- `GET /api/orders/:id/tracking`: get current delivery tracking snapshot and timeline.
+- `PATCH /api/orders/:id/tracking`: admin update for delivery tracking.
+- `POST /api/orders/:id/tracking`: legacy admin alias for tracking update.
+- `POST /api/orders/:id/cancel`: cancel current user unpaid order.
+
+### Payments
+- `POST /api/payments/moyasar`: create payment request against Moyasar.
+- `POST /api/payments/create`: legacy alias for payment creation.
+- `GET /api/payments/callback`: browser callback endpoint used by payment redirect flow.
+- `GET /api/payments/sync?id=...`: authenticated payment status sync.
+
+### Webhooks
+- `POST /api/webhooks`: provider webhook receiver with signature verification and idempotency protection.
+
+### Returns
+- `POST /api/returns`: create return request for delivered order.
+- `GET /api/returns/me`: list current user return requests.
+- `PATCH /api/returns/:id/cancel`: cancel requested return as customer.
+- `GET /api/returns`: admin list of return requests with optional status filter.
+- `PATCH /api/returns/:id/status`: admin transition of return request state.
+
+### Notifications
+- `GET /api/notifications`: list current user notifications.
+- `GET /api/notifications/unread-count`: unread notifications counter.
+- `PATCH /api/notifications/mark-all-read`: mark all notifications as read.
+- `PATCH /api/notifications/:id/read`: mark one notification as read.
+
+### Addresses
+- `POST /api/addresses`: create shipping address.
+- `GET /api/addresses`: list current user addresses.
+- `PATCH /api/addresses/:id`: update shipping address.
+- `DELETE /api/addresses/:id`: delete shipping address.
+- `PATCH /api/addresses/:id/default`: set default shipping address.
+
+### Wishlist
+- `GET /api/wishlist`: list current user wishlist.
+- `POST /api/wishlist/:productId`: add product to wishlist.
+- `DELETE /api/wishlist/:productId`: remove product from wishlist.
+- `POST /api/wishlist/move-to-cart/:productId`: move wishlist item to cart.
+
+### Reviews
+- `POST /api/reviews`: create product review.
+- `GET /api/reviews/product/:productId`: list reviews for a product.
+- `PATCH /api/reviews/:reviewId`: update own review.
+- `DELETE /api/reviews/:reviewId`: delete own review.
+
+### Coupons
+- `POST /api/coupons`: create coupon as admin.
+- `GET /api/coupons`: list coupons as admin.
+- `GET /api/coupons/:id`: get coupon details as admin.
+- `PATCH /api/coupons/:id`: update coupon as admin.
+- `DELETE /api/coupons/:id`: delete coupon as admin.
+
+### Admin
+- `GET /api/admin/dashboard/overview`: admin analytics endpoint with KPI cards, order counts, delivery counts, sales history, payment status counts, inventory summary, top products, and recent orders.
+
+### Health
+- `GET /api/health`: liveness probe.
+- `GET /api/health/ready`: readiness probe for database, Redis, and payments provider wiring.
 
 ## Recent Domain Enhancements
 ### 1. Delivery Tracking Timeline
