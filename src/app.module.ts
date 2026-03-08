@@ -20,6 +20,12 @@ import { OrdersModule } from './orders/orders.module';
 import { CartModule } from './cart/cart.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { CategoriesModule } from './categories/categories.module';
+import { HealthModule } from './health/health.module';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { CouponsModule } from './coupons/coupons.module';
+import { AddressesModule } from './addresses/addresses.module';
+import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -55,6 +61,12 @@ import { CategoriesModule } from './categories/categories.module';
     CartModule,
     ReviewsModule,
     CategoriesModule,
+    HealthModule,
+    WishlistModule,
+    CouponsModule,
+    AddressesModule,
+    AdminModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [

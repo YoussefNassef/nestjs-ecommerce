@@ -8,11 +8,18 @@ import { CreatePaymentProvider } from './providers/create-payment.provider';
 import { MoyasarResHttpProvider } from './providers/moyasar-res-http.provider';
 import { GetPaymentByIdProvider } from './providers/get-payment-by-id.provider';
 import { UpdatePaymentStatusProvider } from './providers/update-payment-status.provider';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
-  providers: [PaymentsService, CreatePaymentProvider, MoyasarResHttpProvider, GetPaymentByIdProvider, UpdatePaymentStatusProvider],
+  providers: [
+    PaymentsService,
+    CreatePaymentProvider,
+    MoyasarResHttpProvider,
+    GetPaymentByIdProvider,
+    UpdatePaymentStatusProvider,
+  ],
   controllers: [PaymentsController],
-  imports: [OrdersModule, TypeOrmModule.forFeature([Payment])],
+  imports: [OrdersModule, NotificationsModule, TypeOrmModule.forFeature([Payment])],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}

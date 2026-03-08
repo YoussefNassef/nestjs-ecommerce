@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -63,7 +64,7 @@ export class ReviewsController {
   @ApiResponse({ status: 200, description: 'Product reviews retrieved' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   getProductReviews(
-    @Param('productId') productId: string,
+    @Param('productId', new ParseUUIDPipe()) productId: string,
     @Query() paginationQuery: PaginationQueryDto,
   ) {
     return this.reviewsService.getProductReviews(productId, paginationQuery);
@@ -83,7 +84,7 @@ export class ReviewsController {
   @ApiResponse({ status: 404, description: 'Review not found' })
   updateReview(
     @ActiveUser() user: activeUserDataInterface.ActiveUserData,
-    @Param('reviewId') reviewId: string,
+    @Param('reviewId', new ParseUUIDPipe()) reviewId: string,
     @Body() updateReviewDto: UpdateReviewDto,
   ) {
     return this.reviewsService.updateReview(user, reviewId, updateReviewDto);
@@ -102,7 +103,7 @@ export class ReviewsController {
   @ApiResponse({ status: 404, description: 'Review not found' })
   removeReview(
     @ActiveUser() user: activeUserDataInterface.ActiveUserData,
-    @Param('reviewId') reviewId: string,
+    @Param('reviewId', new ParseUUIDPipe()) reviewId: string,
   ) {
     return this.reviewsService.removeReview(user, reviewId);
   }

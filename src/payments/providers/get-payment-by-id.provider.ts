@@ -9,14 +9,30 @@ export class GetPaymentByIdProvider {
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
   ) {}
-  async getPaymentById(paymentId: string) {
-    const payment = await this.paymentRepo.findOne({
-      where: { moyasarPaymentId: paymentId },
+  async getPaymentById(identifier: string) {
+    let payment = await this.paymentRepo.findOne({
+      where: { moyasarPaymentId: identifier },
+      relations: ['order'],
     });
+
+    if (!payment) {
+      payment = await this.paymentRepo.findOne({
+        where: { id: identifier },
+        relations: ['order'],
+      });
+    }
+
+    if (!payment) {
+      payment = await this.paymentRepo.findOne({
+        where: { order: { id: identifier } },
+        relations: ['order'],
+      });
+    }
 
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
+
     return payment;
   }
 }

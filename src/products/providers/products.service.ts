@@ -7,9 +7,9 @@ import { FindAllProvider } from './find-all.provider';
 import { FindOneProvider } from './find-one.provider';
 import { UpdateProvider } from './update.provider';
 import { RemoveProvider } from './remove.provider';
-import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
 import { UploadedImageFile } from '../types/uploaded-image-file.type';
+import { ProductListQueryDto } from '../dtos/product-list-query.dto';
 
 @Injectable()
 export class ProductsService {
@@ -35,10 +35,8 @@ export class ProductsService {
     return this.createProductProvider.create(dto);
   }
 
-  async findAll(
-    paginationQuery: PaginationQueryDto,
-  ): Promise<PaginatedResponse<Product>> {
-    return this.findAllProvider.findAll(paginationQuery);
+  async findAll(query: ProductListQueryDto): Promise<PaginatedResponse<Product>> {
+    return this.findAllProvider.findAll(query);
   }
 
   async findOne(id: string): Promise<Product> {

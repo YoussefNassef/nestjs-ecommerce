@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -28,9 +29,13 @@ import { Roles } from 'src/auth/decorator/role.decorator';
 import { Role } from 'src/auth/enums/role.enum';
 import { UpdateProductDto } from './dtos/update-product.dto';
 import { Product } from './products.entity';
-import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
 import { ProductImagesInterceptor } from './interceptors/product-images.interceptor';
 import { UploadedImageFile } from './types/uploaded-image-file.type';
+import {
+  ProductListQueryDto,
+  ProductSortBy,
+  SortOrder,
+} from './dtos/product-list-query.dto';
 
 @ApiTags('products')
 @ApiBearerAuth('JWT-auth')
@@ -103,10 +108,32 @@ export class ProductsController {
 
   @Get()
   @Auth(AuthType.Bearer)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.USER)
   @ApiOperation({ summary: 'Get all products' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiQuery({ name: 'search', required: false, example: 'iphone' })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  @ApiQuery({ name: 'categorySlug', required: false, example: 'smartphones' })
+  @ApiQuery({ name: 'minPrice', required: false, example: 500 })
+  @ApiQuery({ name: 'maxPrice', required: false, example: 5000 })
+  @ApiQuery({ name: 'isActive', required: false, example: true })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ProductSortBy,
+    example: ProductSortBy.PRICE,
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: SortOrder,
+    example: SortOrder.DESC,
+  })
   @ApiResponse({
     status: 200,
     description: 'List of all products',
@@ -114,8 +141,8 @@ export class ProductsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
-  async getProduct(@Query() paginationQuery: PaginationQueryDto) {
-    return this.productService.findAll(paginationQuery);
+  async getProduct(@Query() query: ProductListQueryDto) {
+    return this.productService.findAll(query);
   }
 
   @Get(':id')
@@ -134,7 +161,7 @@ export class ProductsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async getOneProduct(@Param('id') id: string) {
+  async getOneProduct(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productService.findOne(id);
   }
 
@@ -157,7 +184,7 @@ export class ProductsController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   async updateProduct(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ) {
     return this.productService.update(id, updateProductDto);
@@ -179,7 +206,7 @@ export class ProductsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async deleteProduct(@Param('id') id: string) {
+  async deleteProduct(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productService.remove(id);
   }
 }

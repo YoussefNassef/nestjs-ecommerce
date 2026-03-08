@@ -12,7 +12,14 @@ import { Category } from 'src/categories/category.entity';
 
 @Module({
   controllers: [ProductsController],
-  providers: [ProductsService, CreateProductProvider, FindAllProvider, FindOneProvider, UpdateProvider, RemoveProvider],
+  providers: [
+    ProductsService,
+    CreateProductProvider,
+    FindAllProvider,
+    FindOneProvider,
+    UpdateProvider,
+    RemoveProvider,
+  ],
   imports: [TypeOrmModule.forFeature([Product, Category])],
   exports: [ProductsService],
 })

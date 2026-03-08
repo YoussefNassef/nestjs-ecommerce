@@ -14,6 +14,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { unlink, writeFile } from 'fs/promises';
 import { RemoveProvider } from './remove.provider';
 import { Category } from 'src/categories/category.entity';
+import { RedisService } from 'src/redis/providers/redis.service';
 
 @Injectable()
 export class CreateProductProvider {
@@ -23,12 +24,15 @@ export class CreateProductProvider {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
     private readonly removeProvider: RemoveProvider,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(dto: CreateProductDto): Promise<Product> {
     await this.ensureCategoryExists(dto.categoryId);
     const product = this.productRepo.create(dto);
-    return this.productRepo.save(product);
+    const saved = await this.productRepo.save(product);
+    await this.invalidateProductListCache();
+    return saved;
   }
 
   async createWithImages(
@@ -106,9 +110,15 @@ export class CreateProductProvider {
   }
 
   private async ensureCategoryExists(categoryId: string): Promise<void> {
-    const category = await this.categoryRepo.findOne({ where: { id: categoryId } });
+    const category = await this.categoryRepo.findOne({
+      where: { id: categoryId },
+    });
     if (!category) {
       throw new NotFoundException('Category not found');
     }
+  }
+
+  private async invalidateProductListCache(): Promise<void> {
+    await this.redisService.deleteByPattern('cache:products:list:*');
   }
 }

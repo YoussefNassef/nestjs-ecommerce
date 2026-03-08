@@ -1,43 +1,25 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Cart } from '../entities/cart.entity';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { GetMyCartProvider } from './get-my-cart.provider';
-import { GetCartItemProvider } from './get-cart-item.provider';
-import { CartItem } from '../entities/cart-item.entity';
+import { CartStoreProvider } from './cart-store.provider';
 
 @Injectable()
 export class RemoveFromCartProvider {
   constructor(
-    @InjectRepository(Cart)
-    private cartRepository: Repository<Cart>,
-    @InjectRepository(CartItem)
-    private cartItemRepository: Repository<CartItem>,
     private readonly getMyCartProvider: GetMyCartProvider,
-    private readonly getCartItemProvider: GetCartItemProvider,
+    private readonly cartStoreProvider: CartStoreProvider,
   ) {}
+
   async removeFromCart(userId: number, cartItemId: string) {
-    const cart = await this.getMyCartProvider.getMyCart(userId);
-    const cartItem = await this.getCartItemProvider.getCartItem(cartItemId);
+    const cart = await this.cartStoreProvider.getStoredCartOrThrow(userId);
+    const itemIndex = cart.items.findIndex((item) => item.id === cartItemId);
 
-    await this.cartItemRepository.remove(cartItem);
-
-    await this.updateCartTotals(cart.id);
-
-    return this.getMyCartProvider.getMyCart(userId);
-  }
-
-  private async updateCartTotals(cartId: string) {
-    const cart = await this.cartRepository.findOne({
-      where: { id: cartId },
-      relations: ['items'],
-    });
-
-    if (!cart) {
-      return;
+    if (itemIndex === -1) {
+      throw new NotFoundException('Cart item not found');
     }
 
-    cart.recalculateTotals();
-    await this.cartRepository.save(cart);
+    cart.items.splice(itemIndex, 1);
+    await this.cartStoreProvider.saveStoredCart(userId, cart);
+
+    return this.getMyCartProvider.getMyCart(userId);
   }
 }

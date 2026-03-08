@@ -118,7 +118,7 @@ Required configuration keys:
 
 ```env
 NODE_ENV=development
-PORT=3000
+APP_PORT=3000
 
 DB_HOST=localhost
 DB_PORT=5432

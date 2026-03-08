@@ -3,24 +3,28 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { OtpCode } from '../otp-code.entity';
 import { MoreThan, Repository } from 'typeorm';
 import { randomCode } from 'src/utils/methods';
-import { OtpHttpProvider } from './otp-http-provider';
 
 @Injectable()
 export class SendOtpProvider {
   constructor(
     @InjectRepository(OtpCode)
     private readonly otpRepo: Repository<OtpCode>,
-    private readonly otpHttpProvider: OtpHttpProvider,
   ) {}
   async sendOtp(phone: string) {
-    const code = randomCode();
-
     const lastOtp = await this.otpRepo.findOne({
       where: {
         phone,
         createdAt: MoreThan(new Date(Date.now() - 60 * 1000)),
       },
     });
+
+    if (lastOtp) {
+      throw new BadRequestException(
+        'Please wait before requesting another OTP',
+      );
+    }
+
+    const code = randomCode();
 
     const otp = this.otpRepo.create({
       phone,

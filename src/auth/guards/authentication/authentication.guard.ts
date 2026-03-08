@@ -1,7 +1,6 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -35,19 +34,27 @@ export class AuthenticationGuard implements CanActivate {
 
     const guards = authTypes.map((type) => this.authTypeGuardMap[type]).flat();
 
-    const error = new UnauthorizedException('Invalid or expired token');
+    let lastError: unknown;
 
     for (const instance of guards) {
-      const canActivate = await Promise.resolve(
-        instance.canActivate(context),
-      ).catch((err) => {
-        throw new ForbiddenException(err);
-      });
-      if (canActivate) {
-        return true;
+      try {
+        const canActivate = await Promise.resolve(instance.canActivate(context));
+        if (canActivate) {
+          return true;
+        }
+      } catch (error) {
+        lastError = error;
       }
     }
 
-    throw error;
+    if (lastError instanceof UnauthorizedException) {
+      throw lastError;
+    }
+
+    if (lastError instanceof Error) {
+      throw new UnauthorizedException(lastError.message);
+    }
+
+    throw new UnauthorizedException('Invalid or expired token');
   }
 }

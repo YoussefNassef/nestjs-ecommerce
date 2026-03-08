@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Product } from 'src/products/products.entity';
 import { User } from 'src/users/user.entity';

@@ -11,6 +11,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderItem } from 'src/orders/entities/orders-item.entity';
 import { Review } from 'src/reviews/review.entity';
 import { Category } from 'src/categories/category.entity';
+import { Wishlist } from 'src/wishlist/wishlist.entity';
 
 @Entity()
 export class Product {
@@ -77,6 +78,17 @@ export class Product {
     default: 0,
   })
   stock: number;
+
+  @ApiProperty({
+    description: 'Inventory count currently reserved by pending orders',
+    example: 4,
+    minimum: 0,
+  })
+  @Column({
+    type: 'int',
+    default: 0,
+  })
+  reservedStock: number;
 
   @ApiProperty({
     description: 'Whether the product is active and visible',
@@ -154,4 +166,11 @@ export class Product {
   })
   @OneToMany(() => Review, (review) => review.product)
   reviews: Review[];
+
+  @ApiProperty({
+    description: 'Wishlist entries containing this product',
+    type: () => [Wishlist],
+  })
+  @OneToMany(() => Wishlist, (wishlist) => wishlist.product)
+  wishlists: Wishlist[];
 }

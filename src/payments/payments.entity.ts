@@ -35,6 +35,14 @@ export class Payment {
   moyasarPaymentId: string;
 
   @ApiProperty({
+    description: 'Client-provided idempotency key for safe retries',
+    example: 'checkout-ord_12345-attempt_1',
+    required: false,
+  })
+  @Column({ type: 'varchar', length: 128, nullable: true, unique: true })
+  idempotencyKey?: string | null;
+
+  @ApiProperty({
     description: 'Payment amount in smallest currency unit',
     example: 499999,
   })

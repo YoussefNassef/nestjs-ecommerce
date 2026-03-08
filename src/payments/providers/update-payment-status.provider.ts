@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Payment } from '../payments.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PaymentStatus } from '../enums/PaymentStatus.enum';
 
 @Injectable()
@@ -9,17 +13,36 @@ export class UpdatePaymentStatusProvider {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
+    private readonly dataSource: DataSource,
   ) {}
   async updatePaymentStatus(paymentId: string, status: PaymentStatus) {
-    const payment = await this.paymentRepo.findOne({
-      where: { moyasarPaymentId: paymentId },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const paymentRepo = manager.getRepository(Payment);
 
-    if (!payment) {
-      throw new NotFoundException('payment NotFound!');
-    }
-    payment.status = status;
-    await this.paymentRepo.save(payment);
-    return 'Ok';
+      const payment = await paymentRepo.findOne({
+        where: { moyasarPaymentId: paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!payment) {
+        throw new NotFoundException('payment NotFound!');
+      }
+
+      // Idempotency: if already at requested status, skip side effects.
+      if (payment.status === status) {
+        return 'Ok';
+      }
+
+      if (
+        payment.status === PaymentStatus.PAID &&
+        status !== PaymentStatus.PAID
+      ) {
+        throw new BadRequestException('Cannot change status of a paid payment');
+      }
+
+      payment.status = status;
+      await paymentRepo.save(payment);
+      return 'Ok';
+    });
   }
 }

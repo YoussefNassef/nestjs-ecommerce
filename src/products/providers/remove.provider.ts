@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../products.entity';
@@ -6,6 +5,7 @@ import { Repository } from 'typeorm';
 import { FindOneProvider } from './find-one.provider';
 import { basename, join } from 'path';
 import { unlink } from 'fs/promises';
+import { RedisService } from 'src/redis/providers/redis.service';
 
 @Injectable()
 export class RemoveProvider {
@@ -13,6 +13,7 @@ export class RemoveProvider {
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
     private readonly findOneProvider: FindOneProvider,
+    private readonly redisService: RedisService,
   ) {}
   async remove(id: string): Promise<void> {
     const product = await this.findOneProvider.findOne(id);
@@ -38,5 +39,7 @@ export class RemoveProvider {
         await unlink(absolutePath).catch(() => undefined);
       }),
     );
+
+    await this.redisService.deleteByPattern('cache:products:list:*');
   }
 }

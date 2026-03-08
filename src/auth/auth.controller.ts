@@ -18,19 +18,10 @@ export class AuthController {
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({
     status: 201,
-    description: 'User successfully registered',
+    description: 'User successfully registered and OTP sent',
     schema: {
       example: {
-        message: 'User registered successfully',
-        user: {
-          id: 1,
-          fullName: 'John Doe',
-          phone: '966512345678',
-          isVerified: false,
-          role: 'user',
-          createdAt: '2024-01-21T10:30:00Z',
-          updatedAt: '2024-01-21T10:30:00Z',
-        },
+        message: 'OTP sent to phone',
       },
     },
   })

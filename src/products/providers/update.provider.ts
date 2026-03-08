@@ -5,6 +5,7 @@ import { FindOneProvider } from './find-one.provider';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from 'src/categories/category.entity';
+import { RedisService } from 'src/redis/providers/redis.service';
 
 @Injectable()
 export class UpdateProvider {
@@ -14,6 +15,7 @@ export class UpdateProvider {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
     private readonly findOneProvider: FindOneProvider,
+    private readonly redisService: RedisService,
   ) {}
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
     if (dto.categoryId) {
@@ -26,6 +28,8 @@ export class UpdateProvider {
     }
     const product = await this.findOneProvider.findOne(id);
     Object.assign(product, dto);
-    return this.productRepo.save(product);
+    const saved = await this.productRepo.save(product);
+    await this.redisService.deleteByPattern('cache:products:list:*');
+    return saved;
   }
 }

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -14,6 +22,11 @@ import { ActiveUser } from 'src/auth/decorator/active-user.decorator';
 import * as activeUserDataInterface from 'src/auth/interface/active-user-data.interface';
 import { OrderResponseDto } from './dtos/order-response.dto';
 import { PaginationQueryDto } from 'src/common/dtos/pagination-query.dto';
+import { OrderQuoteResponseDto } from './dtos/order-quote-response.dto';
+import { Roles } from 'src/auth/decorator/role.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+import { UpdateDeliveryTrackingDto } from './dtos/update-delivery-tracking.dto';
+import { DeliveryTrackingResponseDto } from './dtos/delivery-tracking-response.dto';
 
 @ApiTags('orders')
 @ApiBearerAuth('JWT-auth')
@@ -25,7 +38,7 @@ export class OrdersController {
   @ApiOperation({ summary: 'Create a new order' })
   @ApiBody({
     type: CreateOrderDto,
-    description: 'Create order from current cart (no fields required)',
+    description: 'Create order from current cart with shipping details',
   })
   @ApiResponse({
     status: 201,
@@ -33,8 +46,30 @@ export class OrdersController {
     type: OrderResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  create(@ActiveUser() user: activeUserDataInterface.ActiveUserData) {
-    return this.orderService.createOrder(user);
+  create(
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.orderService.createOrder(user, dto);
+  }
+
+  @Post('quote')
+  @ApiOperation({ summary: 'Quote order total before checkout' })
+  @ApiBody({
+    type: CreateOrderDto,
+    description: 'Shipping details used to quote final total',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Order quote calculated successfully',
+    type: OrderQuoteResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  quote(
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.orderService.quoteOrder(user, dto);
   }
 
   @Get('me')
@@ -67,8 +102,56 @@ export class OrdersController {
     type: OrderResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Order not found' })
-  findOne(@Param('id') id: string) {
-    return this.orderService.getOrderById(id);
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+  ) {
+    return this.orderService.getOrderById(id, user);
+  }
+
+  @Get(':id/tracking')
+  @ApiOperation({ summary: 'Get order delivery tracking details' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tracking details retrieved successfully',
+    type: DeliveryTrackingResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  tracking(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @ActiveUser() user: activeUserDataInterface.ActiveUserData,
+  ) {
+    return this.orderService.getTracking(id, user);
+  }
+
+  @Post(':id/tracking')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update order delivery tracking (Admin)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Order UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: UpdateDeliveryTrackingDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Delivery tracking updated successfully',
+    type: OrderResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  updateTracking(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDeliveryTrackingDto,
+  ) {
+    return this.orderService.updateDeliveryTracking(id, dto);
   }
 }

@@ -1,5 +1,17 @@
-import { IsNumber, IsString, IsUUID } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 export class CreatePaymentDto {
   @ApiProperty({
@@ -13,7 +25,14 @@ export class CreatePaymentDto {
     description: 'Cardholder name',
     example: 'John Doe',
   })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value,
+  )
   @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Za-z ]+$/, {
+    message: 'Cardholder name must use English letters only',
+  })
   name: string;
 
   @ApiProperty({
@@ -21,6 +40,7 @@ export class CreatePaymentDto {
     example: '4111111111111111',
   })
   @IsString()
+  @Matches(/^\d{13,19}$/)
   number: string;
 
   @ApiProperty({
@@ -29,14 +49,18 @@ export class CreatePaymentDto {
     minimum: 1,
     maximum: 12,
   })
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(12)
   month: number;
 
   @ApiProperty({
     description: 'Card expiration year',
-    example: 2025,
+    example: CURRENT_YEAR,
   })
-  @IsNumber()
+  @IsInt()
+  @Min(CURRENT_YEAR)
+  @Max(2100)
   year: number;
 
   @ApiProperty({
@@ -44,5 +68,7 @@ export class CreatePaymentDto {
     example: '123',
   })
   @IsString()
+  @Length(3, 4)
+  @Matches(/^\d+$/)
   cvc: string;
 }

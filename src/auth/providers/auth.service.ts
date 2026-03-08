@@ -1,7 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
-import { OtpCode } from '../otp-code.entity';
-import { InjectRepository } from '@nestjs/typeorm';
 import { VerifyOtpProvider } from './verify-otp-provider';
 import { CreateUserDto } from 'src/users/dtos/create-user.dto';
 import { CreateUserProvider } from './create-user-provider';
@@ -11,8 +8,6 @@ import { SignInProvider } from './sign-in-provider';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(OtpCode)
-    private readonly otpRepo: Repository<OtpCode>,
     private readonly verifyOtpProvider: VerifyOtpProvider,
     private readonly createUserProvider: CreateUserProvider,
     private readonly signInProvider: SignInProvider,

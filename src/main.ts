@@ -3,19 +3,31 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
-import { NextFunction, Request, Response } from 'express';
+import { json, NextFunction, Request, Response, urlencoded } from 'express';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-
-type RateLimitEntry = {
-  count: number;
-  resetAt: number;
-};
+import { RedisService } from './redis/providers/redis.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+  app.setGlobalPrefix('api');
+
+  const rawBodyVerifier = (
+    req: Request & { rawBody?: string },
+    _: Response,
+    buf: Buffer,
+  ) => {
+    if (req.originalUrl?.startsWith('/api/webhooks')) {
+      req.rawBody = buf.toString('utf8');
+    }
+  };
+
+  app.use(json({ verify: rawBodyVerifier }));
+  app.use(urlencoded({ extended: true, verify: rawBodyVerifier }));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -48,64 +60,69 @@ async function bootstrap() {
     next();
   });
 
+  const redisService = app.get(RedisService);
   const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 900000);
+  const rateLimitWindowSeconds = Math.max(
+    1,
+    Math.ceil(rateLimitWindowMs / 1000),
+  );
   const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 100);
-  const rateLimitStore = new Map<string, RateLimitEntry>();
 
-  setInterval(
-    () => {
-      const now = Date.now();
-      for (const [ip, entry] of rateLimitStore.entries()) {
-        if (entry.resetAt <= now) {
-          rateLimitStore.delete(ip);
-        }
-      }
-    },
-    Math.min(rateLimitWindowMs, 60000),
-  ).unref();
-
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const now = Date.now();
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const existingEntry = rateLimitStore.get(ip);
+    const isLocalIp =
+      ip === '127.0.0.1' ||
+      ip === '::1' ||
+      ip === '::ffff:127.0.0.1' ||
+      ip === 'localhost';
+    const isDevelopment = process.env.NODE_ENV !== 'production';
 
-    if (!existingEntry || existingEntry.resetAt <= now) {
-      rateLimitStore.set(ip, {
-        count: 1,
-        resetAt: now + rateLimitWindowMs,
-      });
+    if (isDevelopment && isLocalIp) {
+      return next();
+    }
+
+    const rateLimitKey = `rate_limit:${ip}`;
+
+    try {
+      const count = await redisService.increment(rateLimitKey);
+
+      if (count === 1) {
+        await redisService.expire(rateLimitKey, rateLimitWindowSeconds);
+      }
+
+      const ttlSeconds = Math.max(1, await redisService.ttl(rateLimitKey));
+      const resetAt = Math.ceil((Date.now() + ttlSeconds * 1000) / 1000);
+
+      res.setHeader('X-RateLimit-Limit', String(rateLimitMax));
+      res.setHeader(
+        'X-RateLimit-Remaining',
+        String(Math.max(0, rateLimitMax - count)),
+      );
+      res.setHeader('X-RateLimit-Reset', String(resetAt));
+
+      if (count > rateLimitMax) {
+        const retryAfter = Math.max(1, ttlSeconds);
+        res.setHeader('Retry-After', String(retryAfter));
+        return res.status(429).json({
+          success: false,
+          statusCode: 429,
+          message: 'Too many requests, please try again later.',
+          timestamp: new Date().toISOString(),
+          path: req.originalUrl,
+        });
+      }
+
+      return next();
+    } catch {
+      // Fail-open when Redis is unavailable to avoid taking down API traffic.
       res.setHeader('X-RateLimit-Limit', String(rateLimitMax));
       res.setHeader('X-RateLimit-Remaining', String(rateLimitMax - 1));
       res.setHeader(
         'X-RateLimit-Reset',
-        String(Math.ceil((now + rateLimitWindowMs) / 1000)),
+        String(Math.ceil((Date.now() + rateLimitWindowMs) / 1000)),
       );
       return next();
     }
-
-    if (existingEntry.count >= rateLimitMax) {
-      const retryAfter = Math.max(
-        1,
-        Math.ceil((existingEntry.resetAt - now) / 1000),
-      );
-      res.setHeader('Retry-After', String(retryAfter));
-      return res.status(429).json({
-        message: 'Too many requests, please try again later.',
-      });
-    }
-
-    existingEntry.count += 1;
-    rateLimitStore.set(ip, existingEntry);
-    res.setHeader('X-RateLimit-Limit', String(rateLimitMax));
-    res.setHeader(
-      'X-RateLimit-Remaining',
-      String(Math.max(0, rateLimitMax - existingEntry.count)),
-    );
-    res.setHeader(
-      'X-RateLimit-Reset',
-      String(Math.ceil(existingEntry.resetAt / 1000)),
-    );
-    return next();
   });
 
   // Swagger Configuration
@@ -121,6 +138,8 @@ async function bootstrap() {
     .addTag('reviews', 'Product reviews endpoints')
     .addTag('categories', 'Category management endpoints')
     .addTag('webhooks', 'Webhook handling endpoints')
+    .addTag('health', 'Health and readiness endpoints')
+    .addTag('admin', 'Admin dashboard and controls')
     .addBearerAuth(
       {
         type: 'http',
@@ -135,28 +154,38 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api/docs', app, document);
 
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  const corsOriginsRaw = (process.env.CORS_ORIGINS ?? '').trim();
+  const corsOrigins = corsOriginsRaw
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
-  if (process.env.NODE_ENV !== 'production' && corsOrigins.length === 0) {
-    corsOrigins.push('http://localhost:3001');
-  }
-  if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
-    throw new Error('CORS_ORIGINS must be set in production');
-  }
+  const allowAllCors =
+    corsOriginsRaw === '*' ||
+    (process.env.NODE_ENV !== 'production' && corsOrigins.length === 0);
 
   app.enableCors({
-    origin: corsOrigins,
+    // `true` reflects request origin, which works with credentials and ngrok dev URLs.
+    origin: allowAllCors ? true : corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'idempotency-key',
+      'idempotency_key',
+      'x-idempotency-key',
+      'ngrok-skip-browser-warning',
+    ],
   });
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
-  await app.listen(process.env.PORT ?? 3000);
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/api/uploads/',
+  });
+  const port = Number(process.env.APP_PORT ?? process.env.PORT ?? 3000);
+  await app.listen(port);
 }
 bootstrap();

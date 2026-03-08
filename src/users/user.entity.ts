@@ -1,17 +1,17 @@
 import { Order } from 'src/orders/entities/orders.entity';
-import { Cart } from 'src/cart/entities/cart.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   OneToMany,
-  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from 'src/auth/enums/role.enum';
 import { Review } from 'src/reviews/review.entity';
+import { Wishlist } from 'src/wishlist/wishlist.entity';
+import { Address } from 'src/addresses/address.entity';
 
 @Entity('users')
 export class User {
@@ -35,6 +35,14 @@ export class User {
   })
   @Column({ unique: true })
   phone: string;
+
+  @ApiProperty({
+    description: 'Pending phone number awaiting OTP verification',
+    example: '966500000000',
+    required: false,
+  })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  pendingPhone?: string | null;
 
   @ApiProperty({
     description: 'Whether the user phone is verified',
@@ -70,11 +78,18 @@ export class User {
   reviews: Review[];
 
   @ApiProperty({
-    description: 'User shopping cart',
-    type: () => Cart,
+    description: 'User wishlist items',
+    type: () => [Wishlist],
   })
-  @OneToOne(() => Cart, (c) => c.user)
-  cart: Cart;
+  @OneToMany(() => Wishlist, (wishlist) => wishlist.user)
+  wishlists: Wishlist[];
+
+  @ApiProperty({
+    description: 'User saved addresses',
+    type: () => [Address],
+  })
+  @OneToMany(() => Address, (address) => address.user)
+  addresses: Address[];
 
   @ApiProperty({
     description: 'Account creation timestamp',

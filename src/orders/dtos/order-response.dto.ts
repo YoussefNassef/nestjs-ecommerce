@@ -2,6 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { OrderStatus } from '../enum/order.status.enum';
 import { PaymentStatus } from 'src/payments/enums/PaymentStatus.enum';
 import { Product } from 'src/products/products.entity';
+import { ShippingMethod } from '../enums/shipping-method.enum';
+import { DeliveryStatus } from '../enums/delivery-status.enum';
 
 export class OrderItemResponseDto {
   @ApiProperty({
@@ -83,10 +85,151 @@ export class OrderResponseDto {
   status: OrderStatus;
 
   @ApiProperty({
+    description: 'Whether stock is currently reserved for this order',
+    example: true,
+  })
+  stockReserved: boolean;
+
+  @ApiProperty({
+    description: 'When the current stock reservation expires',
+    required: false,
+    nullable: true,
+  })
+  reservationExpiresAt?: Date | null;
+
+  @ApiProperty({
     description: 'Total amount for the order (sum of item subtotals)',
     example: 1499997,
   })
   totalAmount: number;
+
+  @ApiProperty({
+    description: 'Subtotal before any discount',
+    example: 1499997,
+  })
+  subtotalAmount: number;
+
+  @ApiProperty({
+    description: 'Discount applied to this order',
+    example: 100000,
+  })
+  discountAmount: number;
+
+  @ApiProperty({
+    description: 'Applied coupon code',
+    required: false,
+    nullable: true,
+    example: 'RAMADAN10',
+  })
+  couponCode?: string | null;
+
+  @ApiProperty({
+    description: 'Shipping method selected',
+    enum: ShippingMethod,
+    example: ShippingMethod.STANDARD,
+  })
+  shippingMethod: ShippingMethod;
+
+  @ApiProperty({
+    description: 'Shipping cost amount',
+    example: 30,
+  })
+  shippingCost: number;
+
+  @ApiProperty({
+    description: 'Estimated delivery in days',
+    example: 3,
+  })
+  shippingEtaDays: number;
+
+  @ApiProperty({
+    description: 'Current delivery lifecycle status',
+    enum: DeliveryStatus,
+    example: DeliveryStatus.PENDING,
+  })
+  deliveryStatus: DeliveryStatus;
+
+  @ApiProperty({
+    description: 'Carrier tracking number',
+    required: false,
+    nullable: true,
+    example: 'TRK-93820393',
+  })
+  trackingNumber?: string | null;
+
+  @ApiProperty({
+    description: 'Shipping carrier',
+    required: false,
+    nullable: true,
+    example: 'Aramex',
+  })
+  shippingCarrier?: string | null;
+
+  @ApiProperty({
+    description: 'Tracking URL',
+    required: false,
+    nullable: true,
+    example: 'https://tracking.example.com/TRK-93820393',
+  })
+  trackingUrl?: string | null;
+
+  @ApiProperty({
+    description: 'Current package location',
+    required: false,
+    nullable: true,
+    example: 'Riyadh Hub',
+  })
+  currentLocation?: string | null;
+
+  @ApiProperty({
+    description: 'Last tracking note',
+    required: false,
+    nullable: true,
+    example: 'Package sorted and moved to outbound truck',
+  })
+  trackingNote?: string | null;
+
+  @ApiProperty({
+    description: 'Estimated delivery timestamp',
+    required: false,
+    nullable: true,
+  })
+  estimatedDeliveryAt?: Date | null;
+
+  @ApiProperty({
+    description: 'When shipment was marked as shipped',
+    required: false,
+    nullable: true,
+  })
+  shippedAt?: Date | null;
+
+  @ApiProperty({
+    description: 'When shipment was marked out for delivery',
+    required: false,
+    nullable: true,
+  })
+  outForDeliveryAt?: Date | null;
+
+  @ApiProperty({
+    description: 'When shipment was marked delivered',
+    required: false,
+    nullable: true,
+  })
+  deliveredAt?: Date | null;
+
+  @ApiProperty({
+    description: 'Last delivery status update timestamp',
+    required: false,
+    nullable: true,
+  })
+  deliveryStatusUpdatedAt?: Date | null;
+
+  @ApiProperty({
+    description: 'Shipping address snapshot',
+    required: false,
+    nullable: true,
+  })
+  shippingAddressSnapshot?: Record<string, unknown> | null;
 
   @ApiProperty({
     description: 'Items included in this order',

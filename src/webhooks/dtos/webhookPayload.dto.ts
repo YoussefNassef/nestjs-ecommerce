@@ -1,12 +1,62 @@
 import {
+  IsDefined,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MoyasarPaymentStatus } from '../enums/paymentStatus';
+import { Type } from 'class-transformer';
+
+class MoyasarWebhookDataMetadataDto {
+  @ApiPropertyOptional({
+    description: 'Order UUID reference from gateway metadata',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
+
+  @ApiPropertyOptional({
+    description: 'User reference from gateway metadata',
+    example: '1',
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+}
+
+class MoyasarWebhookDataDto {
+  @ApiProperty({
+    description: 'Gateway payment identifier',
+    example: 'pay_123456789',
+  })
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @ApiProperty({
+    description: 'Gateway payment status',
+    enum: MoyasarPaymentStatus,
+    example: MoyasarPaymentStatus.PAID,
+  })
+  @IsEnum(MoyasarPaymentStatus)
+  status: MoyasarPaymentStatus;
+
+  @ApiPropertyOptional({
+    description: 'Gateway metadata object',
+    type: () => MoyasarWebhookDataMetadataDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MoyasarWebhookDataMetadataDto)
+  metadata?: MoyasarWebhookDataMetadataDto;
+}
 
 export class MoyasarWebhookPayloadDto {
   @ApiProperty({
@@ -62,15 +112,10 @@ export class MoyasarWebhookPayloadDto {
       },
     },
   })
-  @IsOptional()
-  data: {
-    id: string;
-    status: MoyasarPaymentStatus;
-    metadata?: {
-      orderId?: string;
-      userId?: string;
-    };
-  };
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => MoyasarWebhookDataDto)
+  data: MoyasarWebhookDataDto;
 
   @ApiProperty({
     description: 'Payment creation timestamp',

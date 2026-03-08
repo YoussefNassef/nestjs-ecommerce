@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -76,7 +77,7 @@ export class CategoriesController {
     description: 'Category found',
     type: Category,
   })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.categoriesService.findOne(id);
   }
 
@@ -95,7 +96,10 @@ export class CategoriesController {
     description: 'Category updated successfully',
     type: Category,
   })
-  async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
     return this.categoriesService.update(id, dto);
   }
 
@@ -109,7 +113,7 @@ export class CategoriesController {
     example: '550e8400-e29b-41d4-a716-446655440001',
   })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.categoriesService.remove(id);
   }
 }
