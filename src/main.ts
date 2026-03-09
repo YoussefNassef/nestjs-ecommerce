@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { json, NextFunction, Request, Response, urlencoded } from 'express';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -14,6 +14,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+  const httpLogger = new Logger('HTTP');
   app.setGlobalPrefix('api');
 
   const rawBodyVerifier = (
@@ -57,6 +58,30 @@ async function bootstrap() {
   );
   app.use((_: Request, res: Response, next: NextFunction) => {
     res.removeHeader('X-Powered-By');
+    next();
+  });
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const startTime = process.hrtime.bigint();
+
+    res.on('finish', () => {
+      const durationMs =
+        Number(process.hrtime.bigint() - startTime) / 1_000_000;
+      const statusCode = res.statusCode;
+      const method = req.method;
+      const path = req.originalUrl || req.url;
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const logMessage = `${method} ${path} ${statusCode} ${durationMs.toFixed(1)}ms - ${ip}`;
+
+      if (statusCode >= 500) {
+        httpLogger.error(logMessage);
+      } else if (statusCode >= 400) {
+        httpLogger.warn(logMessage);
+      } else {
+        httpLogger.log(logMessage);
+      }
+    });
+
     next();
   });
 
