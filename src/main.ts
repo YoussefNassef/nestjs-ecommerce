@@ -9,12 +9,16 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { RedisService } from './redis/providers/redis.service';
+import { MetricsService } from './observability/providers/metrics.service';
+import { randomUUID } from 'crypto';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
   const httpLogger = new Logger('HTTP');
+  const metricsService = app.get(MetricsService);
+  const slowRequestMs = Number(process.env.REQUEST_SLOW_MS ?? 500);
   app.setGlobalPrefix('api');
 
   const rawBodyVerifier = (
@@ -43,8 +47,23 @@ async function bootstrap() {
   app.use(
     helmet({
       contentSecurityPolicy:
-        process.env.NODE_ENV === 'production' ? undefined : false,
+        process.env.NODE_ENV === 'production'
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", 'data:', 'https:'],
+                connectSrc: ["'self'", 'https:'],
+                frameAncestors: ["'none'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+              },
+            }
+          : false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      frameguard: { action: 'deny' },
+      noSniff: true,
       referrerPolicy: { policy: 'no-referrer' },
       hsts:
         process.env.NODE_ENV === 'production'
@@ -62,6 +81,10 @@ async function bootstrap() {
   });
   app.use((req: Request, res: Response, next: NextFunction) => {
     const startTime = process.hrtime.bigint();
+    const requestId =
+      (req.headers['x-request-id'] as string | undefined)?.trim() ||
+      randomUUID();
+    res.setHeader('X-Request-Id', requestId);
 
     res.on('finish', () => {
       const durationMs =
@@ -71,9 +94,18 @@ async function bootstrap() {
       const path = req.originalUrl || req.url;
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
-      const logMessage = `${method} ${path} ${statusCode} ${durationMs.toFixed(1)}ms - ${ip}`;
+      metricsService.recordHttpRequest({
+        method,
+        route: path,
+        statusCode,
+        durationMs,
+      });
 
-      if (statusCode >= 500) {
+      const logMessage = `${method} ${path} ${statusCode} ${durationMs.toFixed(1)}ms - ${ip} - reqId=${requestId}`;
+
+      if (durationMs >= slowRequestMs && statusCode < 500) {
+        httpLogger.warn(`Slow request (> ${slowRequestMs}ms): ${logMessage}`);
+      } else if (statusCode >= 500) {
         httpLogger.error(logMessage);
       } else if (statusCode >= 400) {
         httpLogger.warn(logMessage);
@@ -91,7 +123,108 @@ async function bootstrap() {
     1,
     Math.ceil(rateLimitWindowMs / 1000),
   );
-  const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 100);
+  const defaultRateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 100);
+  const authRateLimitMax = Number(
+    process.env.RATE_LIMIT_AUTH_MAX ?? Math.min(defaultRateLimitMax, 30),
+  );
+  const paymentsRateLimitMax = Number(
+    process.env.RATE_LIMIT_PAYMENTS_MAX ?? Math.min(defaultRateLimitMax, 40),
+  );
+  const returnsRateLimitMax = Number(
+    process.env.RATE_LIMIT_RETURNS_MAX ?? Math.min(defaultRateLimitMax, 50),
+  );
+  const adminRateLimitMax = Number(
+    process.env.RATE_LIMIT_ADMIN_MAX ?? Math.min(defaultRateLimitMax, 80),
+  );
+
+  const parseCookie = (
+    cookieHeader: string | undefined,
+    name: string,
+  ): string | null => {
+    if (!cookieHeader) {
+      return null;
+    }
+    for (const part of cookieHeader.split(';')) {
+      const [rawKey, ...rawValue] = part.trim().split('=');
+      if (rawKey !== name) {
+        continue;
+      }
+      return decodeURIComponent(rawValue.join('='));
+    }
+    return null;
+  };
+
+  const isUnsafeMethod = (method: string): boolean =>
+    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+
+  const resolveRateLimitBucket = (
+    path: string,
+  ): { bucket: string; limit: number } => {
+    if (path.startsWith('/api/auth/')) {
+      return { bucket: 'auth', limit: authRateLimitMax };
+    }
+    if (path.startsWith('/api/payments/')) {
+      return { bucket: 'payments', limit: paymentsRateLimitMax };
+    }
+    if (path.startsWith('/api/returns/')) {
+      return { bucket: 'returns', limit: returnsRateLimitMax };
+    }
+    if (path.startsWith('/api/admin/')) {
+      return { bucket: 'admin', limit: adminRateLimitMax };
+    }
+    return { bucket: 'default', limit: defaultRateLimitMax };
+  };
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const path = req.originalUrl || req.url;
+    const isApiRequest = path.startsWith('/api/');
+    const exemptPaths = [
+      '/api/auth/csrf',
+      '/api/auth/register',
+      '/api/auth/signIn',
+      '/api/auth/verify-otp',
+      '/api/auth/refresh',
+      '/api/webhooks/',
+    ];
+
+    if (
+      !isApiRequest ||
+      !isUnsafeMethod(req.method) ||
+      exemptPaths.some((prefix) => path.startsWith(prefix))
+    ) {
+      return next();
+    }
+
+    const cookieHeader = req.headers.cookie;
+    const hasAuthCookie =
+      !!parseCookie(cookieHeader, 'access_token') ||
+      !!parseCookie(cookieHeader, 'refresh_token');
+
+    if (!hasAuthCookie) {
+      return next();
+    }
+
+    const csrfCookie = parseCookie(cookieHeader, 'csrf_token');
+    const csrfHeaderRaw = req.headers['x-csrf-token'];
+    const csrfHeader =
+      typeof csrfHeaderRaw === 'string'
+        ? csrfHeaderRaw
+        : Array.isArray(csrfHeaderRaw)
+          ? csrfHeaderRaw[0]
+          : null;
+
+    if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+      return res.status(403).json({
+        success: false,
+        statusCode: 403,
+        message: 'CSRF token validation failed',
+        timestamp: new Date().toISOString(),
+        path,
+      });
+    }
+
+    return next();
+  });
 
   app.use(async (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -106,7 +239,9 @@ async function bootstrap() {
       return next();
     }
 
-    const rateLimitKey = `rate_limit:${ip}`;
+    const path = req.originalUrl || req.url;
+    const { bucket, limit } = resolveRateLimitBucket(path);
+    const rateLimitKey = `rate_limit:${bucket}:${ip}`;
 
     try {
       const count = await redisService.increment(rateLimitKey);
@@ -118,14 +253,14 @@ async function bootstrap() {
       const ttlSeconds = Math.max(1, await redisService.ttl(rateLimitKey));
       const resetAt = Math.ceil((Date.now() + ttlSeconds * 1000) / 1000);
 
-      res.setHeader('X-RateLimit-Limit', String(rateLimitMax));
+      res.setHeader('X-RateLimit-Limit', String(limit));
       res.setHeader(
         'X-RateLimit-Remaining',
-        String(Math.max(0, rateLimitMax - count)),
+        String(Math.max(0, limit - count)),
       );
       res.setHeader('X-RateLimit-Reset', String(resetAt));
 
-      if (count > rateLimitMax) {
+      if (count > limit) {
         const retryAfter = Math.max(1, ttlSeconds);
         res.setHeader('Retry-After', String(retryAfter));
         return res.status(429).json({
@@ -140,8 +275,11 @@ async function bootstrap() {
       return next();
     } catch {
       // Fail-open when Redis is unavailable to avoid taking down API traffic.
-      res.setHeader('X-RateLimit-Limit', String(rateLimitMax));
-      res.setHeader('X-RateLimit-Remaining', String(rateLimitMax - 1));
+      res.setHeader('X-RateLimit-Limit', String(defaultRateLimitMax));
+      res.setHeader(
+        'X-RateLimit-Remaining',
+        String(defaultRateLimitMax - 1),
+      );
       res.setHeader(
         'X-RateLimit-Reset',
         String(Math.ceil((Date.now() + rateLimitWindowMs) / 1000)),

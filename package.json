@@ -18,7 +18,11 @@
     "test:cov": "cross-env NODE_ENV=test jest --coverage",
     "test:debug": "cross-env NODE_ENV=test node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json",
-    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
+    "load:smoke": "k6 run --duration 1m --vus 5 load-tests/api-load.k6.js",
+    "load:test": "k6 run load-tests/api-load.k6.js",
+    "load:stress": "k6 run --stage 2m:30 --stage 3m:70 --stage 3m:120 --stage 2m:160 --stage 2m:0 load-tests/api-load.k6.js",
+    "load:soak": "k6 run --duration 2h --vus 30 load-tests/api-load.k6.js"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",

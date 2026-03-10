@@ -6,4 +6,5 @@ export default registerAs('appConfig', () => ({
   orderStockReservationMinutes: Number(
     process.env.ORDER_STOCK_RESERVATION_MINUTES ?? 15,
   ),
+  slowRequestMs: Number(process.env.REQUEST_SLOW_MS ?? 500),
 }));

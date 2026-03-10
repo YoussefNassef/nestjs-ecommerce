@@ -27,6 +27,9 @@ import { AddressesModule } from './addresses/addresses.module';
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReturnsModule } from './returns/returns.module';
+import { TypeOrmPerformanceLogger } from './common/logging/typeorm-performance.logger';
+import { ObservabilityModule } from './observability/observability.module';
+import { AuthSession } from './auth/entities/auth-session.entity';
 
 @Module({
   imports: [
@@ -49,8 +52,11 @@ import { ReturnsModule } from './returns/returns.module';
         password: configService.get('database.password'),
         host: configService.get('database.host'),
         database: configService.get('database.name'),
+        maxQueryExecutionTime: configService.get('database.slowQueryMs'),
+        logger: new TypeOrmPerformanceLogger(),
       }),
     }),
+    TypeOrmModule.forFeature([AuthSession]),
     AuthModule,
     UsersModule,
     ConfigModule.forFeature(jwtConfig),
@@ -69,6 +75,7 @@ import { ReturnsModule } from './returns/returns.module';
     AdminModule,
     NotificationsModule,
     ReturnsModule,
+    ObservabilityModule,
   ],
   controllers: [],
   providers: [

@@ -9,6 +9,7 @@ import { MoyasarResHttpProvider } from './providers/moyasar-res-http.provider';
 import { GetPaymentByIdProvider } from './providers/get-payment-by-id.provider';
 import { UpdatePaymentStatusProvider } from './providers/update-payment-status.provider';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { ReconcilePendingPaymentsProvider } from './providers/reconcile-pending-payments.provider';
 
 @Module({
   providers: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     MoyasarResHttpProvider,
     GetPaymentByIdProvider,
     UpdatePaymentStatusProvider,
+    ReconcilePendingPaymentsProvider,
   ],
   controllers: [PaymentsController],
   imports: [

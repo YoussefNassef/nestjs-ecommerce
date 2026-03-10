@@ -19,6 +19,9 @@ import type { Response } from 'express';
 import { PaymentStatus } from './enums/PaymentStatus.enum';
 import { OrdersService } from 'src/orders/providers/orders.service';
 import { OrderStatus } from 'src/orders/enum/order.status.enum';
+import { Roles } from 'src/auth/decorator/role.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+import type { ReconcileSummary } from './providers/reconcile-pending-payments.provider';
 
 @Controller('payments')
 export class PaymentsController {
@@ -32,9 +35,16 @@ export class PaymentsController {
   createPayment(
     @ActiveUser() user: activeUserDataInterface.ActiveUserData,
     @Body() dto: CreatePaymentDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('idempotency-key') idempotencyKeyHeader?: string,
+    @Headers('x-idempotency-key') xIdempotencyKeyHeader?: string,
   ) {
-    if (idempotencyKey && idempotencyKey.length > 128) {
+    const idempotencyKey =
+      idempotencyKeyHeader?.trim() || xIdempotencyKeyHeader?.trim();
+
+    if (!idempotencyKey) {
+      throw new BadRequestException('idempotency-key header is required');
+    }
+    if (idempotencyKey.length > 128) {
       throw new BadRequestException('idempotency-key is too long');
     }
 
@@ -47,9 +57,16 @@ export class PaymentsController {
   createPaymentLegacy(
     @ActiveUser() user: activeUserDataInterface.ActiveUserData,
     @Body() dto: CreatePaymentDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('idempotency-key') idempotencyKeyHeader?: string,
+    @Headers('x-idempotency-key') xIdempotencyKeyHeader?: string,
   ) {
-    if (idempotencyKey && idempotencyKey.length > 128) {
+    const idempotencyKey =
+      idempotencyKeyHeader?.trim() || xIdempotencyKeyHeader?.trim();
+
+    if (!idempotencyKey) {
+      throw new BadRequestException('idempotency-key header is required');
+    }
+    if (idempotencyKey.length > 128) {
       throw new BadRequestException('idempotency-key is too long');
     }
 
@@ -157,5 +174,12 @@ export class PaymentsController {
       throw new BadRequestException('Payment id is required');
     }
     return this.paymentsService.syncPaymentStatus(id, user);
+  }
+
+  @Post('reconcile')
+  @Roles(Role.ADMIN)
+  @HttpCode(200)
+  runReconciliationNow(): Promise<ReconcileSummary> {
+    return this.paymentsService.reconcilePendingPayments();
   }
 }

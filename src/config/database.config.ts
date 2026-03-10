@@ -8,4 +8,5 @@ export default registerAs('database', () => ({
   name: process.env.DB_NAME,
   synchronize: process.env.DATABASE_SYNC === 'true' ? true : false,
   autoLoadEntities: process.env.DATABASE_AUTOLOAD === 'true' ? true : false,
+  slowQueryMs: Number(process.env.DB_SLOW_QUERY_MS ?? 200),
 }));

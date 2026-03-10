@@ -13,6 +13,7 @@ import { OtpCleanUpProvider } from './providers/otp-clean-up-provider';
 import { ConfigModule } from '@nestjs/config';
 import jwtConfig from './config/jwt.config';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthSession } from './entities/auth-session.entity';
 
 @Module({
   controllers: [AuthController],
@@ -27,7 +28,7 @@ import { JwtModule } from '@nestjs/jwt';
   ],
   imports: [
     UsersModule,
-    TypeOrmModule.forFeature([OtpCode]),
+    TypeOrmModule.forFeature([OtpCode, AuthSession]),
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
   ],

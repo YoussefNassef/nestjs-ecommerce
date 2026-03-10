@@ -15,4 +15,9 @@ export interface ActiveUserData {
    * User's role
    */
   role: Role;
+
+  /**
+   * Optional session id for multi-device auth sessions
+   */
+  sid?: string;
 }

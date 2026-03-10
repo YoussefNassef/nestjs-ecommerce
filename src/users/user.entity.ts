@@ -65,6 +65,22 @@ export class User {
   role: Role;
 
   @ApiProperty({
+    description: 'Hashed refresh token for current session',
+    required: false,
+    nullable: true,
+  })
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  refreshTokenHash?: string | null;
+
+  @ApiProperty({
+    description: 'Refresh token expiration timestamp',
+    required: false,
+    nullable: true,
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  refreshTokenExpiresAt?: Date | null;
+
+  @ApiProperty({
     description: 'User orders',
     type: () => [Order],
   })

@@ -6,4 +6,6 @@ export enum NotificationType {
   ORDER_IN_PROGRESS = 'order_in_progress',
   ORDER_COMPLETED = 'order_completed',
   DELIVERY_UPDATED = 'delivery_updated',
+  LOW_STOCK_ALERT = 'low_stock_alert',
+  INVENTORY_ANOMALY = 'inventory_anomaly',
 }

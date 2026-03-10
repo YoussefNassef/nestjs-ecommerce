@@ -19,9 +19,12 @@ import { ReleaseExpiredReservationsProvider } from './providers/release-expired-
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { CancelMyOrderProvider } from './providers/cancel-my-order.provider';
 import { OrderTrackingEvent } from './entities/order-tracking-event.entity';
+import { AdminOrderOpsController } from './admin-order-ops.controller';
+import { OrderAdminAudit } from './entities/order-admin-audit.entity';
+import { AdminOrderOpsProvider } from './providers/admin-order-ops.provider';
 
 @Module({
-  controllers: [OrdersController],
+  controllers: [OrdersController, AdminOrderOpsController],
   providers: [
     OrdersService,
     CreateOrderProvider,
@@ -35,9 +38,15 @@ import { OrderTrackingEvent } from './entities/order-tracking-event.entity';
     GetOrderTrackingProvider,
     ReleaseExpiredReservationsProvider,
     CancelMyOrderProvider,
+    AdminOrderOpsProvider,
   ],
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, OrderTrackingEvent]),
+    TypeOrmModule.forFeature([
+      Order,
+      OrderItem,
+      OrderTrackingEvent,
+      OrderAdminAudit,
+    ]),
     CartModule,
     AddressesModule,
     NotificationsModule,

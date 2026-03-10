@@ -10,6 +10,8 @@ import {
   Query,
   UploadedFiles,
   UseInterceptors,
+  DefaultValuePipe,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -36,6 +38,18 @@ import {
   ProductSortBy,
   SortOrder,
 } from './dtos/product-list-query.dto';
+import { AdjustProductStockDto } from './dtos/adjust-product-stock.dto';
+import { ActiveUser } from 'src/auth/decorator/active-user.decorator';
+import type { ActiveUserData } from 'src/auth/interface/active-user-data.interface';
+import { ListProductStockMovementsQueryDto } from './dtos/list-product-stock-movements-query.dto';
+import { ProductStockMovement } from './product-stock-movement.entity';
+import { PaginatedResponse } from 'src/common/interfaces/paginated-response.interface';
+import { UpdateProductCommercialDto } from './dtos/update-product-commercial.dto';
+import type { LowStockAlertSummary } from './providers/notify-low-stock.provider';
+import { InventoryReportQueryDto } from './dtos/inventory-report-query.dto';
+import type { InventoryReportResult } from './providers/inventory-report.provider';
+import type { StockReconciliationResult } from './providers/stock-reconciliation-checker.provider';
+import type { StockReconciliationFixResult } from './providers/stock-reconciliation-checker.provider';
 
 @ApiTags('products')
 @ApiBearerAuth('JWT-auth')
@@ -145,6 +159,88 @@ export class ProductsController {
     return this.productService.findAll(query);
   }
 
+  @Get('inventory/report')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get daily inventory movement report (in/out/net)' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    description: 'Trailing days window',
+    example: 30,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory report generated successfully',
+  })
+  getInventoryReport(
+    @Query() query: InventoryReportQueryDto,
+  ): Promise<InventoryReportResult> {
+    return this.productService.getInventoryDailyReport(query.days ?? 30);
+  }
+
+  @Get('inventory/reconciliation')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Run inventory reconciliation checker' })
+  @ApiQuery({
+    name: 'notify',
+    required: false,
+    description: 'Notify admins when anomalies are detected',
+    example: false,
+  })
+  @ApiQuery({
+    name: 'forceNotify',
+    required: false,
+    description: 'Ignore notification cooldown and force notification send',
+    example: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reconciliation result returned successfully',
+  })
+  runInventoryReconciliation(
+    @Query('notify', new DefaultValuePipe(false), ParseBoolPipe) notify: boolean,
+    @Query('forceNotify', new DefaultValuePipe(false), ParseBoolPipe)
+    forceNotify: boolean,
+  ): Promise<StockReconciliationResult> {
+    return this.productService.runStockReconciliation(notify, forceNotify);
+  }
+
+  @Post('inventory/reconciliation/fix')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary:
+      'Auto-fix reserved stock mismatches (dryRun by default, non-destructive)',
+  })
+  @ApiQuery({
+    name: 'dryRun',
+    required: false,
+    description: 'When true, only preview fixes without applying changes',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'forceNotify',
+    required: false,
+    description: 'Ignore cooldown and force admin notification',
+    example: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reconciliation auto-fix result',
+  })
+  fixInventoryReconciliation(
+    @Query('dryRun', new DefaultValuePipe(true), ParseBoolPipe) dryRun: boolean,
+    @Query('forceNotify', new DefaultValuePipe(false), ParseBoolPipe)
+    forceNotify: boolean,
+  ): Promise<StockReconciliationFixResult> {
+    return this.productService.fixStockReconciliationMismatch(
+      dryRun,
+      forceNotify,
+    );
+  }
+
   @Get(':id')
   @Auth(AuthType.Bearer)
   @Roles(Role.ADMIN, Role.USER)
@@ -190,6 +286,83 @@ export class ProductsController {
     return this.productService.update(id, updateProductDto);
   }
 
+  @Patch(':id/commercial')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update product commercial data (name/price)' })
+  @ApiParam({
+    name: 'id',
+    description: 'Product UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: UpdateProductCommercialDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product commercial data updated successfully',
+    type: Product,
+  })
+  @ApiResponse({ status: 400, description: 'At least one field is required' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async updateCommercial(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateProductCommercialDto,
+  ) {
+    return this.productService.updateCommercial(id, dto);
+  }
+
+  @Post(':id/stock-adjustments')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Adjust product stock with audit trail entry' })
+  @ApiParam({
+    name: 'id',
+    description: 'Product UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: AdjustProductStockDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Product stock adjusted successfully',
+    type: Product,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid stock adjustment request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async adjustStock(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AdjustProductStockDto,
+    @ActiveUser() admin: ActiveUserData,
+  ) {
+    return this.productService.adjustStock(id, dto, admin);
+  }
+
+  @Get(':id/stock-adjustments')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'List product stock adjustment history' })
+  @ApiParam({
+    name: 'id',
+    description: 'Product UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjustment history retrieved successfully',
+    type: ProductStockMovement,
+    isArray: true,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  async listStockAdjustments(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: ListProductStockMovementsQueryDto,
+  ): Promise<PaginatedResponse<ProductStockMovement>> {
+    return this.productService.listStockMovements(id, query);
+  }
+
   @Delete(':id')
   @Auth(AuthType.Bearer)
   @Roles(Role.ADMIN)
@@ -208,5 +381,25 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   async deleteProduct(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productService.remove(id);
+  }
+
+  @Post('alerts/low-stock')
+  @Auth(AuthType.Bearer)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Trigger low-stock admin alerts' })
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    description: 'Ignore cooldown and force-send notifications',
+    example: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Low-stock alert execution summary',
+  })
+  triggerLowStockAlerts(
+    @Query('force', new DefaultValuePipe(false), ParseBoolPipe) force: boolean,
+  ): Promise<LowStockAlertSummary> {
+    return this.productService.triggerLowStockAlerts(force);
   }
 }

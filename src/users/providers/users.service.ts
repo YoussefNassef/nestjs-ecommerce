@@ -36,6 +36,10 @@ export class UsersService {
     return this.verifyUserProvider.verify(user);
   }
 
+  async saveUser(user: User): Promise<User> {
+    return this.userRepo.save(user);
+  }
+
   async getCurrentUser(activeUser: ActiveUserData): Promise<User> {
     return this.findBy(activeUser.sub);
   }

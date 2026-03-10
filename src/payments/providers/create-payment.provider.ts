@@ -36,6 +36,10 @@ export class CreatePaymentProvider {
     requester: ActiveUserData,
     idempotencyKey?: string,
   ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('idempotency-key is required');
+    }
+
     await this.ordersService.releaseExpiredReservations();
 
     const orderAggregate = await this.ordersService.getOrderEntityById(
@@ -56,25 +60,29 @@ export class CreatePaymentProvider {
       const orderRepo = manager.getRepository(Order);
       const paymentRepo = manager.getRepository(Payment);
 
-      if (idempotencyKey) {
-        const paymentByIdempotency = await paymentRepo.findOne({
-          where: { idempotencyKey },
-          relations: ['order'],
-        });
+      const paymentByIdempotency = await paymentRepo.findOne({
+        where: { idempotencyKey },
+        relations: ['order'],
+      });
 
-        if (paymentByIdempotency) {
-          const paymentUrl = paymentByIdempotency.rawPayload?.source
-            ?.transaction_url as string | undefined;
-
-          if (!paymentUrl) {
-            throw new BadRequestException(
-              'Idempotent request exists but has no payment URL',
-            );
-          }
-
-          existingPaymentUrl = paymentUrl;
-          return;
+      if (paymentByIdempotency) {
+        if (paymentByIdempotency.order?.id !== dto.orderId) {
+          throw new BadRequestException(
+            'idempotency-key already used for another order',
+          );
         }
+
+        const paymentUrl = paymentByIdempotency.rawPayload?.source
+          ?.transaction_url as string | undefined;
+
+        if (!paymentUrl) {
+          throw new BadRequestException(
+            'Idempotent request exists but has no payment URL',
+          );
+        }
+
+        existingPaymentUrl = paymentUrl;
+        return;
       }
 
       const order = await orderRepo.findOne({
@@ -154,7 +162,7 @@ export class CreatePaymentProvider {
       payment.amount = amount;
       payment.status = PaymentStatus.INITIATED;
       payment.rawPayload = moyasarRes.data;
-      payment.idempotencyKey = idempotencyKey ?? null;
+      payment.idempotencyKey = idempotencyKey;
 
       await this.paymentRepo.save(payment);
       await this.notificationsService.create({

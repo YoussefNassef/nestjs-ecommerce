@@ -9,6 +9,8 @@ import { OrdersService } from 'src/orders/providers/orders.service';
 import { OrderStatus } from 'src/orders/enum/order.status.enum';
 import { ActiveUserData } from 'src/auth/interface/active-user-data.interface';
 import { Role } from 'src/auth/enums/role.enum';
+import { ReconcilePendingPaymentsProvider } from './reconcile-pending-payments.provider';
+import type { ReconcileSummary } from './reconcile-pending-payments.provider';
 
 @Injectable()
 export class PaymentsService {
@@ -18,6 +20,7 @@ export class PaymentsService {
     private readonly updatePaymentStatusProvider: UpdatePaymentStatusProvider,
     private readonly moyasarResHttpProvider: MoyasarResHttpProvider,
     private readonly ordersService: OrdersService,
+    private readonly reconcilePendingPaymentsProvider: ReconcilePendingPaymentsProvider,
   ) {}
   async createPayment(
     dto: CreatePaymentDto,
@@ -104,5 +107,9 @@ export class PaymentsService {
     }
 
     return { paymentId: externalPaymentId, status: payment.status };
+  }
+
+  async reconcilePendingPayments(): Promise<ReconcileSummary> {
+    return this.reconcilePendingPaymentsProvider.reconcile();
   }
 }
