@@ -8,4 +8,7 @@ export enum NotificationType {
   DELIVERY_UPDATED = 'delivery_updated',
   LOW_STOCK_ALERT = 'low_stock_alert',
   INVENTORY_ANOMALY = 'inventory_anomaly',
+  SUPPORT_TICKET_CREATED = 'support_ticket_created',
+  SUPPORT_MESSAGE_RECEIVED = 'support_message_received',
+  SUPPORT_TICKET_STATUS_CHANGED = 'support_ticket_status_changed',
 }

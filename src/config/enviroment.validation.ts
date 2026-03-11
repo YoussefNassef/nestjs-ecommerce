@@ -31,6 +31,7 @@ export default Joi.object({
   RATE_LIMIT_MAX: Joi.number().integer().min(1).default(100),
   RATE_LIMIT_AUTH_MAX: Joi.number().integer().min(1).default(30),
   RATE_LIMIT_PAYMENTS_MAX: Joi.number().integer().min(1).default(40),
+  RATE_LIMIT_SUPPORT_MAX: Joi.number().integer().min(1).default(60),
   RATE_LIMIT_RETURNS_MAX: Joi.number().integer().min(1).default(50),
   RATE_LIMIT_ADMIN_MAX: Joi.number().integer().min(1).default(80),
   ORDER_STOCK_RESERVATION_MINUTES: Joi.number().integer().min(1).default(15),

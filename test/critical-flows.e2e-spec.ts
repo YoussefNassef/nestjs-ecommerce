@@ -15,6 +15,8 @@ const runCoreSuite = Boolean(process.env.E2E_BASE_URL && hasCoreAuth);
 const runIf = (condition: boolean) => (condition ? it : it.skip);
 
 describe('Critical Flows (E2E)', () => {
+  let e2eSupportTicketId: string | null = null;
+
   beforeAll(() => {
     if (!runCoreSuite) {
       // eslint-disable-next-line no-console
@@ -143,6 +145,99 @@ describe('Critical Flows (E2E)', () => {
       expect([200, 201]).toContain(returnRes.status);
       expect(returnRes.body).toHaveProperty('success', true);
       expect(returnRes.body).toHaveProperty('data.orderId', returnOrderId);
+    },
+  );
+
+  runIf(runCoreSuite)(
+    'support ticket conversation works across user and admin',
+    async () => {
+      const createTicketRes = await request(baseUrl)
+        .post('/api/support/tickets')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          subject: `E2E support ${Date.now()}`,
+          message: 'I need help with this order',
+        });
+
+      expect([200, 201]).toContain(createTicketRes.status);
+      expect(createTicketRes.body).toHaveProperty('success', true);
+      expect(createTicketRes.body).toHaveProperty('data.id');
+      e2eSupportTicketId = createTicketRes.body.data.id;
+
+      const listAdminRes = await request(baseUrl)
+        .get('/api/admin/support/tickets?page=1&limit=10')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(listAdminRes.status).toBe(200);
+      expect(listAdminRes.body).toHaveProperty('success', true);
+      expect(Array.isArray(listAdminRes.body.data.items)).toBe(true);
+
+      const assignRes = await request(baseUrl)
+        .patch(`/api/admin/support/tickets/${e2eSupportTicketId}/assign-me`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(assignRes.status).toBe(200);
+      expect(assignRes.body).toHaveProperty('success', true);
+      expect(assignRes.body).toHaveProperty(
+        'data.assignedAdminUserId',
+        expect.any(Number),
+      );
+
+      const adminReplyRes = await request(baseUrl)
+        .post(`/api/admin/support/tickets/${e2eSupportTicketId}/messages`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ message: 'Thanks, we are checking this for you' });
+
+      expect([200, 201]).toContain(adminReplyRes.status);
+      expect(adminReplyRes.body).toHaveProperty('success', true);
+
+      const userTicketRes = await request(baseUrl)
+        .get(`/api/support/tickets/${e2eSupportTicketId}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(userTicketRes.status).toBe(200);
+      expect(userTicketRes.body).toHaveProperty('success', true);
+      expect(Array.isArray(userTicketRes.body.data.messages)).toBe(true);
+      const hasAdminReply = (
+        userTicketRes.body.data.messages as Array<{ authorRole?: string }>
+      ).some((message) => message.authorRole === 'admin');
+      expect(hasAdminReply).toBe(true);
+
+      const userReplyRes = await request(baseUrl)
+        .post(`/api/support/tickets/${e2eSupportTicketId}/messages`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ message: 'Thanks, waiting for update.' });
+
+      expect([200, 201]).toContain(userReplyRes.status);
+      expect(userReplyRes.body).toHaveProperty('success', true);
+
+      const resolveRes = await request(baseUrl)
+        .patch(`/api/admin/support/tickets/${e2eSupportTicketId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'resolved' });
+
+      expect(resolveRes.status).toBe(200);
+      expect(resolveRes.body).toHaveProperty('success', true);
+      expect(resolveRes.body).toHaveProperty('data.status', 'resolved');
+
+      const reopenRes = await request(baseUrl)
+        .post(`/api/support/tickets/${e2eSupportTicketId}/reopen`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({});
+
+      expect(reopenRes.status).toBe(200);
+      expect(reopenRes.body).toHaveProperty('success', true);
+      expect(reopenRes.body).toHaveProperty('data.status', 'open');
+
+      const closeRes = await request(baseUrl)
+        .post(`/api/support/tickets/${e2eSupportTicketId}/close`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({});
+
+      expect(closeRes.status).toBe(200);
+      expect(closeRes.body).toHaveProperty('success', true);
+      expect(closeRes.body).toHaveProperty('data.status', 'closed');
     },
   );
 });

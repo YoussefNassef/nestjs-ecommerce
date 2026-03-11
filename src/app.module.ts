@@ -30,6 +30,7 @@ import { ReturnsModule } from './returns/returns.module';
 import { TypeOrmPerformanceLogger } from './common/logging/typeorm-performance.logger';
 import { ObservabilityModule } from './observability/observability.module';
 import { AuthSession } from './auth/entities/auth-session.entity';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { AuthSession } from './auth/entities/auth-session.entity';
     NotificationsModule,
     ReturnsModule,
     ObservabilityModule,
+    SupportModule,
   ],
   controllers: [],
   providers: [

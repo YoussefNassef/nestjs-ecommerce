@@ -20,6 +20,31 @@ async function bootstrap() {
   const metricsService = app.get(MetricsService);
   const slowRequestMs = Number(process.env.REQUEST_SLOW_MS ?? 500);
   app.setGlobalPrefix('api');
+  const corsOriginsRaw = (process.env.CORS_ORIGINS ?? '').trim();
+  const corsOrigins = corsOriginsRaw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const allowAllCors =
+    corsOriginsRaw === '*' ||
+    (process.env.NODE_ENV !== 'production' && corsOrigins.length === 0);
+
+  app.enableCors({
+    // `true` reflects request origin, which works with credentials and ngrok dev URLs.
+    origin: allowAllCors ? true : corsOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'idempotency-key',
+      'idempotency_key',
+      'x-idempotency-key',
+      'x-csrf-token',
+      'X-CSRF-Token',
+      'ngrok-skip-browser-warning',
+    ],
+  });
 
   const rawBodyVerifier = (
     req: Request & { rawBody?: string },
@@ -130,6 +155,9 @@ async function bootstrap() {
   const paymentsRateLimitMax = Number(
     process.env.RATE_LIMIT_PAYMENTS_MAX ?? Math.min(defaultRateLimitMax, 40),
   );
+  const supportRateLimitMax = Number(
+    process.env.RATE_LIMIT_SUPPORT_MAX ?? Math.min(defaultRateLimitMax, 60),
+  );
   const returnsRateLimitMax = Number(
     process.env.RATE_LIMIT_RETURNS_MAX ?? Math.min(defaultRateLimitMax, 50),
   );
@@ -166,6 +194,9 @@ async function bootstrap() {
     if (path.startsWith('/api/payments/')) {
       return { bucket: 'payments', limit: paymentsRateLimitMax };
     }
+    if (path.startsWith('/api/support/')) {
+      return { bucket: 'support', limit: supportRateLimitMax };
+    }
     if (path.startsWith('/api/returns/')) {
       return { bucket: 'returns', limit: returnsRateLimitMax };
     }
@@ -192,6 +223,29 @@ async function bootstrap() {
       !isUnsafeMethod(req.method) ||
       exemptPaths.some((prefix) => path.startsWith(prefix))
     ) {
+      return next();
+    }
+
+    const originHeader = req.headers.origin;
+    const isLocalOrigin =
+      typeof originHeader === 'string' &&
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(originHeader);
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const ip = req.ip || req.socket.remoteAddress || '';
+    const isLocalIp =
+      ip === '127.0.0.1' ||
+      ip === '::1' ||
+      ip === '::ffff:127.0.0.1' ||
+      ip === 'localhost';
+    if (isDevelopment && (isLocalOrigin || isLocalIp)) {
+      return next();
+    }
+
+    const authorizationHeader = req.headers.authorization;
+    const hasBearerAuth =
+      typeof authorizationHeader === 'string' &&
+      authorizationHeader.trim().toLowerCase().startsWith('bearer ');
+    if (hasBearerAuth) {
       return next();
     }
 
@@ -276,10 +330,7 @@ async function bootstrap() {
     } catch {
       // Fail-open when Redis is unavailable to avoid taking down API traffic.
       res.setHeader('X-RateLimit-Limit', String(defaultRateLimitMax));
-      res.setHeader(
-        'X-RateLimit-Remaining',
-        String(defaultRateLimitMax - 1),
-      );
+      res.setHeader('X-RateLimit-Remaining', String(defaultRateLimitMax - 1));
       res.setHeader(
         'X-RateLimit-Reset',
         String(Math.ceil((Date.now() + rateLimitWindowMs) / 1000)),
@@ -304,6 +355,8 @@ async function bootstrap() {
     .addTag('health', 'Health and readiness endpoints')
     .addTag('admin', 'Admin dashboard and controls')
     .addTag('returns', 'Returns and refunds (RMA) endpoints')
+    .addTag('support', 'Customer support tickets and conversations')
+    .addTag('admin-support', 'Admin support operations')
     .addBearerAuth(
       {
         type: 'http',
@@ -320,29 +373,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const corsOriginsRaw = (process.env.CORS_ORIGINS ?? '').trim();
-  const corsOrigins = corsOriginsRaw
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const allowAllCors =
-    corsOriginsRaw === '*' ||
-    (process.env.NODE_ENV !== 'production' && corsOrigins.length === 0);
-
-  app.enableCors({
-    // `true` reflects request origin, which works with credentials and ngrok dev URLs.
-    origin: allowAllCors ? true : corsOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'idempotency-key',
-      'idempotency_key',
-      'x-idempotency-key',
-      'ngrok-skip-browser-warning',
-    ],
-  });
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
